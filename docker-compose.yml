@@ -1,0 +1,251 @@
+version: '3.8'
+
+services:
+  # Databases
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: prism-timescaledb
+    environment:
+      POSTGRES_DB: prism_timeseries
+      POSTGRES_USER: prism_user
+      POSTGRES_PASSWORD: prism_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./database/timescaledb/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - prism-network
+
+  postgis:
+    image: postgis/postgis:15-3.3
+    container_name: prism-postgis
+    environment:
+      POSTGRES_DB: prism_spatial
+      POSTGRES_USER: prism_user
+      POSTGRES_PASSWORD: prism_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ./database/postgis/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - prism-network
+
+  neo4j:
+    image: neo4j:5.12
+    container_name: prism-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/prism_password
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - ./database/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
+    networks:
+      - prism-network
+
+  # Message Queue
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: prism-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    ports:
+      - "9092:9092"
+    networks:
+      - prism-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: prism-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - prism-network
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    container_name: prism-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - prism-network
+
+  # Microservices
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: prism-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+      - user-management
+      - data-ingestion
+      - digital-twin
+      - ai-pipeline
+      - alert-management
+    networks:
+      - prism-network
+
+  user-management:
+    build:
+      context: ./services/user-management
+      dockerfile: Dockerfile
+    container_name: prism-user-management
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://prism_user:prism_password@timescaledb:5432/prism_timeseries
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=your-jwt-secret-key
+    depends_on:
+      - timescaledb
+      - redis
+    networks:
+      - prism-network
+
+  data-ingestion:
+    build:
+      context: ./services/data-ingestion
+      dockerfile: Dockerfile
+    container_name: prism-data-ingestion
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - TIMESCALE_URL=postgresql://prism_user:prism_password@timescaledb:5432/prism_timeseries
+      - POSTGIS_URL=postgresql://prism_user:prism_password@postgis:5432/prism_spatial
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      - timescaledb
+      - postgis
+      - kafka
+    networks:
+      - prism-network
+
+  digital-twin:
+    build:
+      context: ./services/digital-twin
+      dockerfile: Dockerfile
+    container_name: prism-digital-twin
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - POSTGIS_URL=postgresql://prism_user:prism_password@postgis:5432/prism_spatial
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=prism_password
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      - postgis
+      - neo4j
+      - kafka
+    networks:
+      - prism-network
+
+  ai-pipeline:
+    build:
+      context: ./services/ai-pipeline
+      dockerfile: Dockerfile
+    container_name: prism-ai-pipeline
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - TIMESCALE_URL=postgresql://prism_user:prism_password@timescaledb:5432/prism_timeseries
+      - POSTGIS_URL=postgresql://prism_user:prism_password@postgis:5432/prism_spatial
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=prism_password
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      - timescaledb
+      - postgis
+      - neo4j
+      - kafka
+    networks:
+      - prism-network
+
+  alert-management:
+    build:
+      context: ./services/alert-management
+      dockerfile: Dockerfile
+    container_name: prism-alert-management
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=production
+      - TIMESCALE_URL=postgresql://prism_user:prism_password@timescaledb:5432/prism_timeseries
+      - KAFKA_BROKERS=kafka:9092
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - timescaledb
+      - kafka
+      - redis
+    networks:
+      - prism-network
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prism-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - prism-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: prism-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - prism-network
+
+volumes:
+  timescaledb_data:
+  postgis_data:
+  neo4j_data:
+  neo4j_logs:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  prism-network:
+    driver: bridge

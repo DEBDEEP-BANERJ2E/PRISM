@@ -1,0 +1,167 @@
+version: '3.8'
+
+services:
+  # Databases (same as production)
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: prism-timescaledb-dev
+    environment:
+      POSTGRES_DB: prism_timeseries
+      POSTGRES_USER: prism_user
+      POSTGRES_PASSWORD: prism_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_dev_data:/var/lib/postgresql/data
+      - ./database/timescaledb/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - prism-dev-network
+
+  postgis:
+    image: postgis/postgis:15-3.3
+    container_name: prism-postgis-dev
+    environment:
+      POSTGRES_DB: prism_spatial
+      POSTGRES_USER: prism_user
+      POSTGRES_PASSWORD: prism_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgis_dev_data:/var/lib/postgresql/data
+      - ./database/postgis/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - prism-dev-network
+
+  neo4j:
+    image: neo4j:5.12
+    container_name: prism-neo4j-dev
+    environment:
+      NEO4J_AUTH: neo4j/prism_password
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_dev_data:/data
+      - neo4j_dev_logs:/logs
+      - ./database/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
+    networks:
+      - prism-dev-network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: prism-kafka-dev
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    ports:
+      - "9092:9092"
+    networks:
+      - prism-dev-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: prism-zookeeper-dev
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - prism-dev-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: prism-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - prism-dev-network
+
+  # Development services (mount source code)
+  api-gateway-dev:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile.dev
+    container_name: prism-api-gateway-dev
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
+      - DATA_INGESTION_URL=http://data-ingestion-dev:3001
+      - DIGITAL_TWIN_URL=http://digital-twin-dev:3002
+      - AI_PIPELINE_URL=http://ai-pipeline-dev:3003
+      - ALERT_MANAGEMENT_URL=http://alert-management-dev:3004
+      - USER_MANAGEMENT_URL=http://user-management-dev:3005
+    volumes:
+      - ./services/api-gateway/src:/app/src
+      - ./services/api-gateway/package.json:/app/package.json
+    depends_on:
+      - redis
+    networks:
+      - prism-dev-network
+
+  user-management-dev:
+    build:
+      context: ./services/user-management
+      dockerfile: Dockerfile.dev
+    container_name: prism-user-management-dev
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://prism_user:prism_password@timescaledb:5432/prism_timeseries
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=dev-jwt-secret-key
+    volumes:
+      - ./services/user-management/src:/app/src
+      - ./services/user-management/package.json:/app/package.json
+    depends_on:
+      - timescaledb
+      - redis
+    networks:
+      - prism-dev-network
+
+  data-ingestion-dev:
+    build:
+      context: ./services/data-ingestion
+      dockerfile: Dockerfile.dev
+    container_name: prism-data-ingestion-dev
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - TIMESCALE_URL=postgresql://prism_user:prism_password@timescaledb:5432/prism_timeseries
+      - POSTGIS_URL=postgresql://prism_user:prism_password@postgis:5432/prism_spatial
+      - KAFKA_BROKERS=kafka:9092
+    volumes:
+      - ./services/data-ingestion/src:/app/src
+      - ./services/data-ingestion/package.json:/app/package.json
+    depends_on:
+      - timescaledb
+      - postgis
+      - kafka
+    networks:
+      - prism-dev-network
+
+volumes:
+  timescaledb_dev_data:
+  postgis_dev_data:
+  neo4j_dev_data:
+  neo4j_dev_logs:
+  redis_dev_data:
+
+networks:
+  prism-dev-network:
+    driver: bridge

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prism
+  labels:
+    name: prism
+    app.kubernetes.io/name: prism
+    app.kubernetes.io/part-of: prism-rockfall-prediction

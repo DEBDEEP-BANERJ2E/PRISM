@@ -9,6 +9,8 @@ import { loggingMiddleware } from './middleware/logging';
 import { errorHandler } from './middleware/errorHandler';
 import { healthRouter } from './routes/health';
 import { authRouter } from './routes/auth';
+import { integrationsRouter } from './routes/integrations';
+import { docsRouter } from './routes/docs';
 import logger from './utils/logger';
 import { config } from './config';
 
@@ -40,11 +42,17 @@ app.use(loggingMiddleware);
 // Health check (no auth required)
 app.use('/health', healthRouter);
 
+// API documentation (no auth required)
+app.use('/docs', docsRouter);
+
 // Authentication routes (no auth required)
 app.use('/auth', authRouter);
 
 // Protected routes with authentication
 app.use('/api', authMiddleware);
+
+// External system integration routes
+app.use('/api/integrations', integrationsRouter);
 
 // Service proxies
 const serviceProxies = {

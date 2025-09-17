@@ -1,0 +1,364 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: prism-monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'prism-production'
+        environment: 'production'
+
+    rule_files:
+      - "/etc/prometheus/rules/*.yml"
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+              - alertmanager:9093
+
+    scrape_configs:
+      # Prometheus itself
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      # Kubernetes API server
+      - job_name: 'kubernetes-apiservers'
+        kubernetes_sd_configs:
+          - role: endpoints
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: default;kubernetes;https
+
+      # Kubernetes nodes
+      - job_name: 'kubernetes-nodes'
+        kubernetes_sd_configs:
+          - role: node
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics
+
+      # Kubernetes pods
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name
+
+      # PRISM API Gateway
+      - job_name: 'prism-api-gateway'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - prism-production
+                - prism-staging
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: prism-api-gateway.*
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: environment
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
+
+      # PRISM Model Servers
+      - job_name: 'prism-model-servers'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - prism-production
+                - prism-staging
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_label_app]
+            action: keep
+            regex: prism-model-.*
+          - source_labels: [__meta_kubernetes_service_label_model]
+            target_label: model_name
+          - source_labels: [__meta_kubernetes_service_label_version]
+            target_label: model_version
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: environment
+
+      # PRISM Data Ingestion
+      - job_name: 'prism-data-ingestion'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - prism-production
+                - prism-staging
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: prism-data-ingestion.*
+
+      # PRISM Digital Twin
+      - job_name: 'prism-digital-twin'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - prism-production
+                - prism-staging
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: prism-digital-twin.*
+
+      # PRISM AI Pipeline
+      - job_name: 'prism-ai-pipeline'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - prism-production
+                - prism-staging
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: prism-ai-pipeline.*
+
+      # MLflow Tracking Server
+      - job_name: 'mlflow-server'
+        static_configs:
+          - targets: ['mlflow-server:5000']
+        metrics_path: '/metrics'
+
+      # PostgreSQL (TimescaleDB)
+      - job_name: 'postgresql'
+        static_configs:
+          - targets: ['postgres-exporter:9187']
+
+      # Redis
+      - job_name: 'redis'
+        static_configs:
+          - targets: ['redis-exporter:9121']
+
+      # Node Exporter
+      - job_name: 'node-exporter'
+        kubernetes_sd_configs:
+          - role: endpoints
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_endpoints_name]
+            action: keep
+            regex: node-exporter
+
+      # cAdvisor
+      - job_name: 'cadvisor'
+        kubernetes_sd_configs:
+          - role: node
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+
+      # Hexapod Edge Devices (via Pushgateway)
+      - job_name: 'hexapod-metrics'
+        static_configs:
+          - targets: ['pushgateway:9091']
+        honor_labels: true
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: prism-monitoring
+data:
+  prism-alerts.yml: |
+    groups:
+      - name: prism.model.alerts
+        rules:
+          - alert: ModelPredictionLatencyHigh
+            expr: histogram_quantile(0.95, rate(prism_model_prediction_duration_seconds_bucket[5m])) > 2
+            for: 2m
+            labels:
+              severity: warning
+              service: model-server
+            annotations:
+              summary: "High model prediction latency"
+              description: "Model {{ $labels.model_name }} prediction latency is {{ $value }}s (95th percentile)"
+
+          - alert: ModelPredictionErrors
+            expr: rate(prism_model_prediction_errors_total[5m]) > 0.1
+            for: 1m
+            labels:
+              severity: critical
+              service: model-server
+            annotations:
+              summary: "High model prediction error rate"
+              description: "Model {{ $labels.model_name }} error rate is {{ $value }} errors/sec"
+
+          - alert: ModelDriftDetected
+            expr: prism_model_drift_score > 0.7
+            for: 0m
+            labels:
+              severity: warning
+              service: model-monitoring
+            annotations:
+              summary: "Model drift detected"
+              description: "Model {{ $labels.model_name }} drift score is {{ $value }}"
+
+          - alert: ModelAccuracyDegraded
+            expr: prism_model_accuracy < 0.85
+            for: 5m
+            labels:
+              severity: critical
+              service: model-monitoring
+            annotations:
+              summary: "Model accuracy degraded"
+              description: "Model {{ $labels.model_name }} accuracy dropped to {{ $value }}"
+
+      - name: prism.system.alerts
+        rules:
+          - alert: APIGatewayDown
+            expr: up{job="prism-api-gateway"} == 0
+            for: 1m
+            labels:
+              severity: critical
+              service: api-gateway
+            annotations:
+              summary: "PRISM API Gateway is down"
+              description: "API Gateway instance {{ $labels.instance }} is down"
+
+          - alert: HighRequestLatency
+            expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="prism-api-gateway"}[5m])) > 1
+            for: 2m
+            labels:
+              severity: warning
+              service: api-gateway
+            annotations:
+              summary: "High API request latency"
+              description: "95th percentile latency is {{ $value }}s"
+
+          - alert: HighErrorRate
+            expr: rate(http_requests_total{job="prism-api-gateway",status=~"5.."}[5m]) / rate(http_requests_total{job="prism-api-gateway"}[5m]) > 0.05
+            for: 2m
+            labels:
+              severity: critical
+              service: api-gateway
+            annotations:
+              summary: "High API error rate"
+              description: "Error rate is {{ $value | humanizePercentage }}"
+
+          - alert: DataIngestionBacklog
+            expr: prism_data_ingestion_queue_size > 1000
+            for: 5m
+            labels:
+              severity: warning
+              service: data-ingestion
+            annotations:
+              summary: "Data ingestion backlog"
+              description: "Data ingestion queue size is {{ $value }}"
+
+          - alert: HexapodOffline
+            expr: time() - prism_hexapod_last_seen_timestamp > 300
+            for: 0m
+            labels:
+              severity: warning
+              service: hexapod
+            annotations:
+              summary: "Hexapod sensor offline"
+              description: "Hexapod {{ $labels.hexapod_id }} has been offline for {{ $value }}s"
+
+      - name: prism.infrastructure.alerts
+        rules:
+          - alert: HighCPUUsage
+            expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+            for: 5m
+            labels:
+              severity: warning
+              service: infrastructure
+            annotations:
+              summary: "High CPU usage"
+              description: "CPU usage on {{ $labels.instance }} is {{ $value }}%"
+
+          - alert: HighMemoryUsage
+            expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+            for: 5m
+            labels:
+              severity: warning
+              service: infrastructure
+            annotations:
+              summary: "High memory usage"
+              description: "Memory usage on {{ $labels.instance }} is {{ $value }}%"
+
+          - alert: DiskSpaceLow
+            expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 90
+            for: 5m
+            labels:
+              severity: critical
+              service: infrastructure
+            annotations:
+              summary: "Low disk space"
+              description: "Disk usage on {{ $labels.instance }} is {{ $value }}%"
+
+          - alert: PodCrashLooping
+            expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+            for: 5m
+            labels:
+              severity: warning
+              service: kubernetes
+            annotations:
+              summary: "Pod crash looping"
+              description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
+
+          - alert: PodNotReady
+            expr: kube_pod_status_ready{condition="false"} == 1
+            for: 5m
+            labels:
+              severity: warning
+              service: kubernetes
+            annotations:
+              summary: "Pod not ready"
+              description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is not ready"

@@ -1,0 +1,950 @@
+openapi: 3.0.3
+info:
+  title: PRISM API Gateway
+  description: |
+    PRISM (Predictive Rockfall Intelligence & Safety Management) API Gateway provides 
+    secure access to all PRISM services and external system integrations.
+    
+    ## Authentication
+    All protected endpoints require a Bearer token obtained through the `/auth/login` endpoint.
+    
+    ## External Integrations
+    The API gateway provides integration endpoints for:
+    - Fleet Management Systems
+    - Blast Planning Systems  
+    - Water Management Systems
+    
+    ## Rate Limiting
+    API requests are limited to 1000 requests per 15-minute window per IP address.
+  version: 1.0.0
+  contact:
+    name: PRISM API Support
+    email: api-support@prism.mining
+  license:
+    name: Proprietary
+    url: https://prism.mining/license
+
+servers:
+  - url: https://api.prism.mining
+    description: Production server
+  - url: https://staging-api.prism.mining
+    description: Staging server
+  - url: http://localhost:8080
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # Authentication endpoints
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and receive JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  example: "john.doe"
+                password:
+                  type: string
+                  minLength: 6
+                  example: "securePassword123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT authentication token
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate current session and blacklist token
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged out successfully"
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh JWT token
+      description: Get a new JWT token using current valid token
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: New JWT authentication token
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Fleet Management Integration
+  /api/integrations/fleet/alert:
+    post:
+      tags:
+        - Fleet Management
+      summary: Send rockfall alert to fleet management
+      description: Send rockfall risk alert to fleet management system for operational response
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FleetAlert'
+      responses:
+        '200':
+          description: Alert sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/integrations/fleet/reroute:
+    post:
+      tags:
+        - Fleet Management
+      summary: Request truck rerouting
+      description: Request rerouting of haul trucks to avoid high-risk areas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FleetRerouteRequest'
+      responses:
+        '200':
+          description: Rerouting request sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/integrations/fleet/trucks:
+    get:
+      tags:
+        - Fleet Management
+      summary: Get active trucks
+      description: Retrieve list of currently active haul trucks
+      responses:
+        '200':
+          description: Active trucks retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trucks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HaulTruck'
+
+  /api/integrations/fleet/stop-operations:
+    post:
+      tags:
+        - Fleet Management
+      summary: Stop operations in zone
+      description: Request immediate stop of all operations in specified zone due to critical risk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - zone
+              properties:
+                zone:
+                  $ref: '#/components/schemas/GeographicZone'
+      responses:
+        '200':
+          description: Operations stop request sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  # Blast Planning Integration
+  /api/integrations/blast/assessment:
+    post:
+      tags:
+        - Blast Planning
+      summary: Submit slope stability assessment
+      description: Submit slope stability assessment for planned blast
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SlopeStabilityAssessment'
+      responses:
+        '200':
+          description: Assessment submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/integrations/blast/optimize:
+    post:
+      tags:
+        - Blast Planning
+      summary: Request blast optimization
+      description: Request optimization of blast design based on slope stability constraints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlastOptimizationRequest'
+      responses:
+        '200':
+          description: Optimization request processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  optimizationResult:
+                    type: object
+                    description: Optimization results from blast planning system
+
+  /api/integrations/blast/upcoming:
+    get:
+      tags:
+        - Blast Planning
+      summary: Get upcoming blasts
+      description: Retrieve scheduled blasts within specified time window
+      parameters:
+        - name: hours
+          in: query
+          description: Time window in hours (default 72)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 168
+            default: 72
+      responses:
+        '200':
+          description: Upcoming blasts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blasts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BlastPlan'
+
+  /api/integrations/blast/postpone:
+    post:
+      tags:
+        - Blast Planning
+      summary: Postpone blast
+      description: Request postponement of scheduled blast due to safety concerns
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - blastId
+                - reason
+              properties:
+                blastId:
+                  type: string
+                  description: Unique identifier of the blast to postpone
+                reason:
+                  type: string
+                  description: Reason for postponement
+                newTime:
+                  type: string
+                  format: date-time
+                  description: New scheduled time (optional)
+      responses:
+        '200':
+          description: Blast postponed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  # Water Management Integration
+  /api/integrations/water/groundwater:
+    post:
+      tags:
+        - Water Management
+      summary: Submit groundwater data
+      description: Submit groundwater monitoring data from hexapod sensors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/GroundwaterData'
+      responses:
+        '200':
+          description: Groundwater data submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/integrations/water/drainage-recommendation:
+    post:
+      tags:
+        - Water Management
+      summary: Submit drainage recommendation
+      description: Submit AI-generated drainage recommendations based on slope stability analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DrainageRecommendation'
+      responses:
+        '200':
+          description: Drainage recommendation submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/integrations/water/pumping-control:
+    post:
+      tags:
+        - Water Management
+      summary: Control pumping station
+      description: Send control commands to pumping stations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PumpingStationControl'
+      responses:
+        '200':
+          description: Pumping station control executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/integrations/water/water-level-alert:
+    post:
+      tags:
+        - Water Management
+      summary: Send water level alert
+      description: Send water level alert to water management system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WaterLevelAlert'
+      responses:
+        '200':
+          description: Water level alert sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/integrations/water/pumping-stations:
+    get:
+      tags:
+        - Water Management
+      summary: Get active pumping stations
+      description: Retrieve list of active pumping stations
+      responses:
+        '200':
+          description: Active pumping stations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stations:
+                    type: array
+                    items:
+                      type: object
+                      description: Pumping station information
+
+  /api/integrations/water/emergency-drainage:
+    post:
+      tags:
+        - Water Management
+      summary: Request emergency drainage
+      description: Request emergency drainage for critical slope stability situations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - area
+              properties:
+                area:
+                  $ref: '#/components/schemas/GeographicZone'
+      responses:
+        '200':
+          description: Emergency drainage requested successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  # Health check
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Check API gateway health status
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: Unique user identifier
+        username:
+          type: string
+          description: Username
+        email:
+          type: string
+          format: email
+          description: User email address
+        role:
+          type: string
+          enum: [admin, engineer, operator, viewer]
+          description: User role
+        mineSite:
+          type: string
+          description: Associated mine site
+
+    FleetAlert:
+      type: object
+      required:
+        - alertId
+        - riskLevel
+        - affectedArea
+        - recommendedActions
+        - timestamp
+      properties:
+        alertId:
+          type: string
+          description: Unique alert identifier
+        riskLevel:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Risk probability (0-1)
+        affectedArea:
+          $ref: '#/components/schemas/GeographicZone'
+        recommendedActions:
+          type: array
+          items:
+            type: string
+          description: List of recommended actions
+        timestamp:
+          type: string
+          format: date-time
+
+    FleetRerouteRequest:
+      type: object
+      required:
+        - truckIds
+        - avoidanceZone
+        - priority
+      properties:
+        truckIds:
+          type: array
+          items:
+            type: string
+          description: List of truck IDs to reroute
+        avoidanceZone:
+          type: object
+          properties:
+            coordinates:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number
+            radius:
+              type: number
+              description: Avoidance radius in meters
+        alternativeRoutes:
+          type: array
+          items:
+            type: string
+          description: Suggested alternative routes
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+
+    HaulTruck:
+      type: object
+      properties:
+        truckId:
+          type: string
+        currentLocation:
+          $ref: '#/components/schemas/Location'
+        status:
+          type: string
+          enum: [active, idle, maintenance]
+        route:
+          type: string
+
+    SlopeStabilityAssessment:
+      type: object
+      required:
+        - assessmentId
+        - blastId
+        - preBlastRisk
+        - postBlastRisk
+        - affectedSlopes
+        - recommendations
+        - timestamp
+      properties:
+        assessmentId:
+          type: string
+        blastId:
+          type: string
+        preBlastRisk:
+          type: number
+          minimum: 0
+          maximum: 1
+        postBlastRisk:
+          type: number
+          minimum: 0
+          maximum: 1
+        affectedSlopes:
+          type: array
+          items:
+            type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+        vibrationPrediction:
+          type: object
+          properties:
+            peakParticleVelocity:
+              type: number
+            frequency:
+              type: number
+            duration:
+              type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    BlastOptimizationRequest:
+      type: object
+      required:
+        - blastId
+        - currentPlan
+        - slopeStabilityData
+        - constraints
+      properties:
+        blastId:
+          type: string
+        currentPlan:
+          $ref: '#/components/schemas/BlastPlan'
+        slopeStabilityData:
+          type: object
+          properties:
+            riskMap:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number
+            criticalZones:
+              type: array
+              items:
+                type: string
+            stabilityFactors:
+              type: array
+              items:
+                type: number
+        constraints:
+          type: object
+          properties:
+            maxVibration:
+              type: number
+            minFragmentation:
+              type: number
+            safetyBuffer:
+              type: number
+
+    BlastPlan:
+      type: object
+      properties:
+        blastId:
+          type: string
+        location:
+          type: object
+          properties:
+            coordinates:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number
+            bench:
+              type: string
+            elevation:
+              type: number
+        scheduledTime:
+          type: string
+          format: date-time
+        explosiveType:
+          type: string
+        chargeWeight:
+          type: number
+        blastPattern:
+          type: object
+          properties:
+            holeSpacing:
+              type: number
+            rowSpacing:
+              type: number
+            numberOfHoles:
+              type: integer
+
+    GroundwaterData:
+      type: object
+      required:
+        - sensorId
+        - location
+        - measurements
+        - timestamp
+      properties:
+        sensorId:
+          type: string
+        location:
+          type: object
+          properties:
+            latitude:
+              type: number
+            longitude:
+              type: number
+            elevation:
+              type: number
+            depth:
+              type: number
+        measurements:
+          type: object
+          properties:
+            waterLevel:
+              type: number
+            pressure:
+              type: number
+            temperature:
+              type: number
+            conductivity:
+              type: number
+            pH:
+              type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    DrainageRecommendation:
+      type: object
+      required:
+        - recommendationId
+        - priority
+        - affectedArea
+        - actions
+        - reasoning
+        - expectedImpact
+        - timestamp
+      properties:
+        recommendationId:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+        affectedArea:
+          $ref: '#/components/schemas/GeographicZone'
+        actions:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [install_drain, increase_pumping, redirect_flow, emergency_drainage]
+              location:
+                type: array
+                items:
+                  type: number
+              specifications:
+                type: object
+              estimatedCost:
+                type: number
+              timeframe:
+                type: string
+        reasoning:
+          type: string
+        expectedImpact:
+          type: object
+          properties:
+            pressureReduction:
+              type: number
+            stabilityImprovement:
+              type: number
+            riskReduction:
+              type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    PumpingStationControl:
+      type: object
+      required:
+        - stationId
+        - action
+        - reason
+        - priority
+      properties:
+        stationId:
+          type: string
+        action:
+          type: string
+          enum: [start, stop, adjust_rate]
+        targetRate:
+          type: number
+          description: Target pumping rate in L/min (required for adjust_rate action)
+        duration:
+          type: number
+          description: Duration in minutes
+        reason:
+          type: string
+        priority:
+          type: string
+          enum: [normal, urgent, emergency]
+
+    WaterLevelAlert:
+      type: object
+      required:
+        - alertId
+        - sensorId
+        - currentLevel
+        - thresholdLevel
+        - trend
+        - rateOfChange
+        - riskAssessment
+      properties:
+        alertId:
+          type: string
+        sensorId:
+          type: string
+        currentLevel:
+          type: number
+        thresholdLevel:
+          type: number
+        trend:
+          type: string
+          enum: [rising, falling, stable]
+        rateOfChange:
+          type: number
+          description: Rate of change in mm/hour
+        predictedPeakLevel:
+          type: number
+        timeToThreshold:
+          type: number
+          description: Time to threshold in hours
+        riskAssessment:
+          type: object
+          properties:
+            slopeStabilityImpact:
+              type: number
+              minimum: 0
+              maximum: 1
+            operationalImpact:
+              type: string
+            recommendedActions:
+              type: array
+              items:
+                type: string
+
+    GeographicZone:
+      type: object
+      required:
+        - coordinates
+        - description
+      properties:
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+          description: Polygon coordinates in [longitude, latitude] format
+        description:
+          type: string
+          description: Human-readable description of the area
+
+    Location:
+      type: object
+      properties:
+        latitude:
+          type: number
+        longitude:
+          type: number
+        elevation:
+          type: number
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          type: object
+          description: Additional error details
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Fleet Management
+    description: Integration with fleet management systems
+  - name: Blast Planning
+    description: Integration with blast planning systems
+  - name: Water Management
+    description: Integration with water management systems
+  - name: System
+    description: System health and monitoring endpoints

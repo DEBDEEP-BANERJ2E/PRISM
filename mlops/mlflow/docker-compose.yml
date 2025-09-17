@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  mlflow-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: mlflow
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow_password
+    volumes:
+      - mlflow_db_data:/var/lib/postgresql/data
+    networks:
+      - mlflow-network
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - mlflow-network
+    restart: unless-stopped
+
+  mlflow-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://mlflow:mlflow_password@mlflow-db:5432/mlflow
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: s3://mlflow-artifacts/
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin123
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mlflow-db
+      - minio
+    networks:
+      - mlflow-network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        mlflow server 
+        --backend-store-uri postgresql://mlflow:mlflow_password@mlflow-db:5432/mlflow
+        --default-artifact-root s3://mlflow-artifacts/
+        --host 0.0.0.0
+        --port 5000
+      "
+
+  model-registry:
+    build:
+      context: .
+      dockerfile: Dockerfile.registry
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow-server:5000
+      POSTGRES_URI: postgresql://mlflow:mlflow_password@mlflow-db:5432/mlflow
+    ports:
+      - "8001:8001"
+    depends_on:
+      - mlflow-server
+    networks:
+      - mlflow-network
+    restart: unless-stopped
+
+volumes:
+  mlflow_db_data:
+  minio_data:
+
+networks:
+  mlflow-network:
+    driver: bridge

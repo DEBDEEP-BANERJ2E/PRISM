@@ -1,0 +1,394 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: prism-monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  prism-overview.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "PRISM System Overview",
+        "tags": ["prism", "overview"],
+        "style": "dark",
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "System Health",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "up{job=~\"prism-.*\"}",
+                "legendFormat": "{{ job }}"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": 0},
+                    {"color": "green", "value": 1}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "API Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{job=\"prism-api-gateway\"}[5m])",
+                "legendFormat": "{{ method }} {{ status }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Model Prediction Latency",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(prism_model_prediction_duration_seconds_bucket[5m]))",
+                "legendFormat": "95th percentile - {{ model_name }}"
+              },
+              {
+                "expr": "histogram_quantile(0.50, rate(prism_model_prediction_duration_seconds_bucket[5m]))",
+                "legendFormat": "50th percentile - {{ model_name }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+          },
+          {
+            "id": 4,
+            "title": "Active Hexapod Sensors",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "count(prism_hexapod_last_seen_timestamp > (time() - 300))",
+                "legendFormat": "Online Sensors"
+              }
+            ],
+            "gridPos": {"h": 4, "w": 6, "x": 0, "y": 16}
+          },
+          {
+            "id": 5,
+            "title": "Data Ingestion Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(prism_data_points_ingested_total[5m])",
+                "legendFormat": "{{ source_type }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 18, "x": 6, "y": 16}
+          }
+        ]
+      }
+    }
+
+  prism-models.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "PRISM Model Performance",
+        "tags": ["prism", "models", "ml"],
+        "style": "dark",
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+          "from": "now-6h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Model Accuracy",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "prism_model_accuracy",
+                "legendFormat": "{{ model_name }} - {{ model_version }}"
+              }
+            ],
+            "yAxes": [
+              {
+                "min": 0,
+                "max": 1,
+                "unit": "percentunit"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Model Drift Score",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "prism_model_drift_score",
+                "legendFormat": "{{ model_name }}"
+              }
+            ],
+            "yAxes": [
+              {
+                "min": 0,
+                "max": 1
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Prediction Volume",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(prism_model_predictions_total[5m])",
+                "legendFormat": "{{ model_name }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+          },
+          {
+            "id": 4,
+            "title": "Model Resource Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(container_cpu_usage_seconds_total{pod=~\"prism-model-.*\"}[5m])",
+                "legendFormat": "CPU - {{ pod }}"
+              },
+              {
+                "expr": "container_memory_usage_bytes{pod=~\"prism-model-.*\"} / 1024 / 1024 / 1024",
+                "legendFormat": "Memory - {{ pod }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+          },
+          {
+            "id": 5,
+            "title": "Risk Assessment Distribution",
+            "type": "heatmap",
+            "targets": [
+              {
+                "expr": "prism_risk_assessment_histogram_bucket",
+                "legendFormat": "{{ le }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+          }
+        ]
+      }
+    }
+
+  prism-infrastructure.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "PRISM Infrastructure",
+        "tags": ["prism", "infrastructure", "kubernetes"],
+        "style": "dark",
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Cluster CPU Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "100 - (avg(irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+                "legendFormat": "CPU Usage %"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Cluster Memory Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+                "legendFormat": "Memory Usage %"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Pod Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "kube_pod_status_phase{namespace=~\"prism-.*\"}",
+                "legendFormat": "{{ phase }} - {{ namespace }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0}
+          },
+          {
+            "id": 4,
+            "title": "Network I/O",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(node_network_receive_bytes_total[5m])",
+                "legendFormat": "Receive - {{ device }}"
+              },
+              {
+                "expr": "rate(node_network_transmit_bytes_total[5m])",
+                "legendFormat": "Transmit - {{ device }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+          },
+          {
+            "id": 5,
+            "title": "Disk I/O",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(node_disk_read_bytes_total[5m])",
+                "legendFormat": "Read - {{ device }}"
+              },
+              {
+                "expr": "rate(node_disk_written_bytes_total[5m])",
+                "legendFormat": "Write - {{ device }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+          }
+        ]
+      }
+    }
+
+  prism-hexapods.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "PRISM Hexapod Sensors",
+        "tags": ["prism", "hexapod", "sensors", "iot"],
+        "style": "dark",
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+          "from": "now-2h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Sensor Status Map",
+            "type": "geomap",
+            "targets": [
+              {
+                "expr": "prism_hexapod_status",
+                "legendFormat": "{{ hexapod_id }}"
+              }
+            ],
+            "gridPos": {"h": 12, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Battery Levels",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "prism_hexapod_battery_level",
+                "legendFormat": "{{ hexapod_id }}"
+              }
+            ],
+            "yAxes": [
+              {
+                "min": 0,
+                "max": 100,
+                "unit": "percent"
+              }
+            ],
+            "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Signal Strength",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "prism_hexapod_signal_strength",
+                "legendFormat": "{{ hexapod_id }}"
+              }
+            ],
+            "gridPos": {"h": 6, "w": 12, "x": 12, "y": 6}
+          },
+          {
+            "id": 4,
+            "title": "Sensor Readings",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "prism_hexapod_tilt_x",
+                "legendFormat": "Tilt X - {{ hexapod_id }}"
+              },
+              {
+                "expr": "prism_hexapod_tilt_y",
+                "legendFormat": "Tilt Y - {{ hexapod_id }}"
+              },
+              {
+                "expr": "prism_hexapod_temperature",
+                "legendFormat": "Temperature - {{ hexapod_id }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+          },
+          {
+            "id": 5,
+            "title": "Data Transmission Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(prism_hexapod_data_points_total[5m])",
+                "legendFormat": "{{ hexapod_id }}"
+              }
+            ],
+            "gridPos": {"h": 6, "w": 12, "x": 0, "y": 20}
+          },
+          {
+            "id": 6,
+            "title": "Anomaly Detection",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "prism_hexapod_anomaly_score",
+                "legendFormat": "{{ hexapod_id }}"
+              }
+            ],
+            "yAxes": [
+              {
+                "min": 0,
+                "max": 1
+              }
+            ],
+            "gridPos": {"h": 6, "w": 12, "x": 12, "y": 20}
+          }
+        ]
+      }
+    }

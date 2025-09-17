@@ -27,6 +27,21 @@ export const config = {
     userManagement: process.env.USER_MANAGEMENT_URL || 'http://user-management:3005'
   },
   
+  externalSystems: {
+    fleetManagement: {
+      url: process.env.FLEET_MANAGEMENT_URL || 'http://fleet-management:8080',
+      apiKey: process.env.FLEET_MANAGEMENT_API_KEY || ''
+    },
+    blastPlanning: {
+      url: process.env.BLAST_PLANNING_URL || 'http://blast-planning:8080',
+      apiKey: process.env.BLAST_PLANNING_API_KEY || ''
+    },
+    waterManagement: {
+      url: process.env.WATER_MANAGEMENT_URL || 'http://water-management:8080',
+      apiKey: process.env.WATER_MANAGEMENT_API_KEY || ''
+    }
+  },
+  
   logging: {
     level: process.env.LOG_LEVEL || 'info',
     format: process.env.LOG_FORMAT || 'json'

@@ -1,0 +1,341 @@
+name: PRISM Model Training Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'services/ai-pipeline/**'
+      - 'models/**'
+      - 'data/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/ai-pipeline/**'
+      - 'models/**'
+  schedule:
+    # Run daily at 2 AM UTC for automated retraining
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      model_type:
+        description: 'Type of model to train'
+        required: true
+        default: 'rockfall_prediction'
+        type: choice
+        options:
+          - rockfall_prediction
+          - gnn_spatial
+          - temporal_analysis
+          - physics_informed
+          - anomaly_detection
+      experiment_name:
+        description: 'MLflow experiment name'
+        required: false
+        default: 'prism-automated-training'
+      data_version:
+        description: 'Data version to use for training'
+        required: false
+        default: 'latest'
+
+env:
+  MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+  KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
+
+jobs:
+  data-validation:
+    runs-on: ubuntu-latest
+    outputs:
+      data-valid: ${{ steps.validate.outputs.valid }}
+      data-version: ${{ steps.validate.outputs.version }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        pip install -r mlops/requirements.txt
+        
+    - name: Validate training data
+      id: validate
+      run: |
+        python mlops/scripts/validate_data.py \
+          --data-version ${{ github.event.inputs.data_version || 'latest' }} \
+          --output-file data_validation_report.json
+        
+        # Check if validation passed
+        if [ -f "data_validation_report.json" ]; then
+          VALID=$(python -c "import json; print(json.load(open('data_validation_report.json'))['valid'])")
+          VERSION=$(python -c "import json; print(json.load(open('data_validation_report.json'))['version'])")
+          echo "valid=$VALID" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        else
+          echo "valid=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Upload validation report
+      uses: actions/upload-artifact@v3
+      with:
+        name: data-validation-report
+        path: data_validation_report.json
+
+  model-training:
+    needs: data-validation
+    if: needs.data-validation.outputs.data-valid == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        model_type: 
+          - ${{ github.event.inputs.model_type && fromJson(format('["{0}"]', github.event.inputs.model_type)) || fromJson('["rockfall_prediction", "gnn_spatial", "temporal_analysis"]') }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        pip install -r mlops/requirements.txt
+        pip install -r services/ai-pipeline/requirements.txt
+        
+    - name: Configure MLflow
+      run: |
+        export MLFLOW_TRACKING_URI=${{ env.MLFLOW_TRACKING_URI }}
+        mlflow --version
+        
+    - name: Train model
+      id: train
+      run: |
+        python mlops/scripts/train_model.py \
+          --model-type ${{ matrix.model_type }} \
+          --experiment-name ${{ github.event.inputs.experiment_name || 'prism-automated-training' }} \
+          --data-version ${{ needs.data-validation.outputs.data-version }} \
+          --output-file training_results_${{ matrix.model_type }}.json
+          
+        # Extract run ID and model metrics
+        RUN_ID=$(python -c "import json; print(json.load(open('training_results_${{ matrix.model_type }}.json'))['run_id'])")
+        echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+        
+    - name: Upload training results
+      uses: actions/upload-artifact@v3
+      with:
+        name: training-results-${{ matrix.model_type }}
+        path: training_results_${{ matrix.model_type }}.json
+        
+    - name: Model validation
+      id: validate_model
+      run: |
+        python mlops/scripts/validate_model.py \
+          --run-id ${{ steps.train.outputs.run_id }} \
+          --model-type ${{ matrix.model_type }} \
+          --validation-config mlops/config/validation_config.yaml \
+          --output-file model_validation_${{ matrix.model_type }}.json
+          
+        # Check if model passed validation
+        VALID=$(python -c "import json; print(json.load(open('model_validation_${{ matrix.model_type }}.json'))['valid'])")
+        echo "valid=$VALID" >> $GITHUB_OUTPUT
+        
+    - name: Register model
+      if: steps.validate_model.outputs.valid == 'true'
+      run: |
+        python mlops/scripts/register_model.py \
+          --run-id ${{ steps.train.outputs.run_id }} \
+          --model-name prism-${{ matrix.model_type }} \
+          --description "Automated training from commit ${{ github.sha }}" \
+          --tags '{"commit": "${{ github.sha }}", "branch": "${{ github.ref_name }}", "automated": "true"}'
+          
+    - name: Upload model validation results
+      uses: actions/upload-artifact@v3
+      with:
+        name: model-validation-${{ matrix.model_type }}
+        path: model_validation_${{ matrix.model_type }}.json
+
+  model-comparison:
+    needs: [data-validation, model-training]
+    runs-on: ubuntu-latest
+    if: always() && needs.data-validation.outputs.data-valid == 'true'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        pip install -r mlops/requirements.txt
+        
+    - name: Download training results
+      uses: actions/download-artifact@v3
+      with:
+        pattern: training-results-*
+        merge-multiple: true
+        
+    - name: Compare models
+      run: |
+        python mlops/scripts/compare_models.py \
+          --results-dir . \
+          --experiment-name ${{ github.event.inputs.experiment_name || 'prism-automated-training' }} \
+          --output-file model_comparison_report.json
+          
+    - name: Generate model report
+      run: |
+        python mlops/scripts/generate_report.py \
+          --comparison-file model_comparison_report.json \
+          --output-format html \
+          --output-file model_training_report.html
+          
+    - name: Upload comparison report
+      uses: actions/upload-artifact@v3
+      with:
+        name: model-comparison-report
+        path: |
+          model_comparison_report.json
+          model_training_report.html
+
+  staging-deployment:
+    needs: [model-training, model-comparison]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' && needs.model-training.result == 'success'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+        
+    - name: Configure kubectl
+      run: |
+        echo "${{ env.KUBECONFIG_DATA }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+        kubectl cluster-info
+        
+    - name: Deploy to staging
+      run: |
+        python mlops/scripts/deploy_models.py \
+          --environment staging \
+          --experiment-name ${{ github.event.inputs.experiment_name || 'prism-automated-training' }} \
+          --auto-promote \
+          --config mlops/config/staging_deployment.yaml
+
+  performance-tests:
+    needs: staging-deployment
+    runs-on: ubuntu-latest
+    if: needs.staging-deployment.result == 'success'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        pip install -r mlops/requirements.txt
+        pip install locust pytest-benchmark
+        
+    - name: Run performance tests
+      run: |
+        python mlops/tests/performance_tests.py \
+          --staging-endpoint ${{ secrets.STAGING_API_ENDPOINT }} \
+          --duration 300 \
+          --users 10 \
+          --output-file performance_test_results.json
+          
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-test-results
+        path: performance_test_results.json
+
+  production-deployment:
+    needs: [staging-deployment, performance-tests]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && needs.performance-tests.result == 'success'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+        
+    - name: Configure kubectl
+      run: |
+        echo "${{ env.KUBECONFIG_DATA }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+        kubectl cluster-info
+        
+    - name: Deploy to production
+      run: |
+        python mlops/scripts/deploy_models.py \
+          --environment production \
+          --experiment-name ${{ github.event.inputs.experiment_name || 'prism-automated-training' }} \
+          --canary-deployment \
+          --config mlops/config/production_deployment.yaml
+          
+    - name: Monitor deployment
+      run: |
+        python mlops/scripts/monitor_deployment.py \
+          --environment production \
+          --duration 600 \
+          --alert-webhook ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  cleanup:
+    needs: [model-training, model-comparison, staging-deployment, performance-tests, production-deployment]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Cleanup old model versions
+      run: |
+        python mlops/scripts/cleanup_models.py \
+          --keep-versions 5 \
+          --archive-old-versions \
+          --dry-run false
+          
+    - name: Cleanup artifacts
+      run: |
+        # Clean up temporary files and artifacts
+        find . -name "*.tmp" -delete
+        find . -name "__pycache__" -type d -exec rm -rf {} + || true
+
+  notification:
+    needs: [model-training, model-comparison, staging-deployment, performance-tests, production-deployment]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Notify Slack
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#prism-mlops'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

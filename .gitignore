@@ -33,9 +33,6 @@ build/Release
 # Dependency directories
 jspm_packages/
 
-# Snowpack dependency directory (https://snowpack.dev/)
-web_modules/
-
 # TypeScript cache
 *.tsbuildinfo
 
@@ -84,19 +81,10 @@ dist
 
 # Gatsby files
 .cache/
-# Comment in the public line in if your project uses Gatsby and not Next.js
-# https://nextjs.org/blog/next-9-1#public-directory-support
-# public
+public
 
-# vuepress build output
+# Vuepress build output
 .vuepress/dist
-
-# vuepress v2.x temp and cache directory
-.temp
-.cache
-
-# Docusaurus cache and generated files
-.docusaurus
 
 # Serverless directories
 .serverless/
@@ -143,13 +131,13 @@ logs
 # Build outputs
 dist/
 build/
-*.tgz
-*.tar.gz
+*.d.ts
+*.js.map
 
 # Test outputs
 test-results/
 coverage/
-.nyc_output/
+junit.xml
 
 # Temporary files
 tmp/
@@ -163,15 +151,11 @@ temp/
 # Configuration files with sensitive data
 config/local.json
 config/production.json
-.env.local
-.env.production
+secrets.json
 
 # Docker
 .dockerignore
-Dockerfile.local
-
-# Kubernetes
-k8s/secrets/
+docker-compose.override.yml
 
 # Terraform
 *.tfstate
@@ -194,40 +178,46 @@ ENV/
 env.bak/
 venv.bak/
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Machine Learning models and data
-*.pkl
-*.h5
-*.model
-data/raw/
-data/processed/
-models/
-
-# Monitoring and metrics
-prometheus/
-grafana/data/
+# Java (if any Java components are added)
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
 
 # Backup files
 *.bak
 *.backup
 *.old
 
-# Lock files (keep package-lock.json but ignore others)
-yarn.lock
-pnpm-lock.yaml
+# PRISM specific
+# Sensor data files
+data/sensor-readings/
+data/survey-data/
+data/historical/
 
-# Service-specific build artifacts
-services/*/dist/
-services/*/build/
-services/*/coverage/
-services/*/node_modules/
+# Model outputs
+models/trained/
+models/checkpoints/
+
+# Simulation results
+results/
+simulations/output/
+
+# Cache directories
+.cache/
+cache/
+
+# Monitoring and metrics
+metrics/
+monitoring/logs/
 
 # Documentation build
 docs/_build/
 docs/site/
 
-# Kiro IDE specific (if any)
-.kiro/cache/
-.kiro/temp/
+# Package lock files (choose one based on your preference)
+# package-lock.json  # Uncomment if using yarn
+# yarn.lock          # Uncomment if using npm

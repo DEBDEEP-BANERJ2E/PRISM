@@ -1,0 +1,62 @@
+MIT License
+
+Copyright (c) 2024 PRISM - Predictive Rockfall Intelligence & Safety Management
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Additional Terms for Mining Safety Applications
+
+While this software is provided under the MIT License, users implementing this
+system for actual mining operations should:
+
+1. **Conduct thorough testing** in non-production environments before deployment
+2. **Perform safety audits** with qualified mining safety professionals
+3. **Comply with local regulations** and mining safety standards
+4. **Implement redundant safety systems** as this software should complement, not replace, existing safety measures
+5. **Provide adequate training** to all personnel using the system
+6. **Maintain regular updates** and security patches
+
+## Disclaimer
+
+This software is designed to assist in mining safety operations but should not
+be the sole basis for safety decisions. Users are responsible for:
+
+- Validating the accuracy of predictions in their specific environment
+- Implementing appropriate safety protocols and procedures
+- Ensuring compliance with applicable safety regulations
+- Maintaining and calibrating sensor networks and equipment
+- Training personnel on proper system usage
+
+The authors and contributors of this software assume no responsibility for any
+accidents, injuries, or damages that may occur from the use or misuse of this
+system in actual mining operations.
+
+## Third-Party Licenses
+
+This project may include third-party libraries and components with their own
+licenses. Please refer to the individual package documentation and license
+files for complete licensing information.
+
+## Contact
+
+For licensing questions or commercial licensing inquiries, please contact:
+- Email: legal@prism-ai.com
+- Project Lead: Debdeep Banerjee (debdeep@prism-ai.com)

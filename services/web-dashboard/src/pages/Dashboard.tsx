@@ -1,13 +1,13 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Box, Grid, Card, CardContent, Typography } from '@mui/material';
-import { useDashboardStore } from '@/store/dashboardStore';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import TerrainVisualization from '@/components/3D/TerrainVisualization';
-import MapboxView from '@/components/map/MapboxView';
-import TimeSlider from '@/components/controls/TimeSlider';
-import SensorHealthPanel from '@/components/monitoring/SensorHealthPanel';
-import { HexapodStatus, SensorReading, RiskAssessment, AlertEvent } from '@/types';
+import { useDashboardStore } from '../store/dashboardStore';
+import DashboardLayout from '../components/layout/DashboardLayout';
+import TerrainVisualization from '../components/3D/TerrainVisualization';
+import MapboxView from '../components/map/MapboxView';
+import TimeSlider from '../components/controls/TimeSlider';
+import SensorHealthPanel from '../components/monitoring/SensorHealthPanel';
+import { HexapodStatus, SensorReading, RiskAssessment, AlertEvent } from '../types';
 
 const Dashboard: React.FC = () => {
   const {

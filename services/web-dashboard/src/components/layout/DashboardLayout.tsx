@@ -34,7 +34,7 @@ import {
   WifiTetheringError,
   CheckCircle
 } from '@mui/icons-material';
-import { useDashboardStore } from '@/store/dashboardStore';
+import { useDashboardStore } from '../../store/dashboardStore';
 import { format } from 'date-fns';
 
 interface DashboardLayoutProps {

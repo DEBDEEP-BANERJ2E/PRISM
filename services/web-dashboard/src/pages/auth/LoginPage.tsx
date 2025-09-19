@@ -23,7 +23,7 @@ import {
   Terrain,
   Analytics
 } from '@mui/icons-material';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '../../store/authStore';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');

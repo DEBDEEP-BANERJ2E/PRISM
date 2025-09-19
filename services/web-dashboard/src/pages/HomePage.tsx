@@ -37,7 +37,7 @@ import {
   Timeline,
   Assessment as ReportsIcon
 } from '@mui/icons-material';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '../store/authStore';
 
 const HomePage: React.FC = () => {
   const { user } = useAuthStore();

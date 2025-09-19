@@ -36,8 +36,8 @@ import {
   Timeline
 } from '@mui/icons-material';
 import { format, formatDistanceToNow } from 'date-fns';
-import { useDashboardStore } from '@/store/dashboardStore';
-import { HexapodStatus } from '@/types';
+import { useDashboardStore } from '../../store/dashboardStore';
+import { HexapodStatus } from '../../types';
 
 interface SensorHealthPanelProps {
   className?: string;

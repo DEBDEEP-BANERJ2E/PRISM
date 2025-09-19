@@ -6,25 +6,25 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import { AnimatePresence } from 'framer-motion';
 
 // Pages
-import LandingPage from '@/pages/LandingPage';
-import PricingPage from '@/pages/PricingPage';
-import WaitlistPage from '@/pages/WaitlistPage';
-import LoginPage from '@/pages/auth/LoginPage';
-import HomePage from '@/pages/HomePage';
-import Dashboard from '@/pages/Dashboard';
-import RiskAssessmentPage from '@/pages/risk/RiskAssessmentPage';
-import SensorManagementPage from '@/pages/sensors/SensorManagementPage';
-import AlertsPage from '@/pages/alerts/AlertsPage';
-import AnalyticsPage from '@/pages/analytics/AnalyticsPage';
-import DigitalTwinPage from '@/pages/digital-twin/DigitalTwinPage';
-import ScenarioPage from '@/pages/scenario/ScenarioPage';
-import ReportsPage from '@/pages/reports/ReportsPage';
-import SettingsPage from '@/pages/settings/SettingsPage';
-import ProfilePage from '@/pages/profile/ProfilePage';
+import LandingPage from './pages/LandingPage';
+import PricingPage from './pages/PricingPage';
+import WaitlistPage from './pages/WaitlistPage';
+import LoginPage from './pages/auth/LoginPage';
+import HomePage from './pages/HomePage';
+import Dashboard from './pages/Dashboard';
+import RiskAssessmentPage from './pages/risk/RiskAssessmentPage';
+import SensorManagementPage from './pages/sensors/SensorManagementPage';
+import AlertsPage from './pages/alerts/AlertsPage';
+import AnalyticsPage from './pages/analytics/AnalyticsPage';
+import DigitalTwinPage from './pages/digital-twin/DigitalTwinPage';
+import ScenarioPage from './pages/scenario/ScenarioPage';
+import ReportsPage from './pages/reports/ReportsPage';
+import SettingsPage from './pages/settings/SettingsPage';
+import ProfilePage from './pages/profile/ProfilePage';
 
 // Layout
-import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import MainLayout from '@/components/layout/MainLayout';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import MainLayout from './components/layout/MainLayout';
 
 // Create dark theme for the dashboard
 const darkTheme = createTheme({

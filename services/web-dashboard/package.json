@@ -5,7 +5,7 @@
   "main": "src/index.tsx",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "vitest --run",
     "test:watch": "vitest",
@@ -20,7 +20,7 @@
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.15.3",
     "@mui/material": "^5.15.3",
-    "@react-three/drei": "^9.92.7",
+    "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.15.12",
     "axios": "^1.6.2",
     "date-fns": "^2.30.0",
@@ -34,7 +34,7 @@
     "react-router-dom": "^6.8.0",
     "recharts": "^2.8.0",
     "socket.io-client": "^4.7.4",
-    "three": "^0.158.0",
+    "three": "^0.159.0",
     "zustand": "^4.4.7"
   },
   "devDependencies": {

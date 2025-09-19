@@ -3,8 +3,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { motion } from 'framer-motion';
-import { useDashboardStore } from '@/store/dashboardStore';
-import { TerrainMesh, RiskHeatmapData } from '@/types';
+import { useDashboardStore } from '../../store/dashboardStore';
+import { TerrainMesh, RiskHeatmapData } from '../../types';
 
 interface TerrainMeshProps {
   terrainData: TerrainMesh;

@@ -30,8 +30,8 @@ import {
   Terrain,
   Close
 } from '@mui/icons-material';
-import { useDashboardStore } from '@/store/dashboardStore';
-import type { HexapodStatus } from '@/types';
+import { useDashboardStore } from '../../store/dashboardStore';
+import type { HexapodStatus } from '../../types';
 
 // Mapbox access token from environment variables
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoicHJpc20tbWluaW5nIiwiYSI6ImNscXh5ejF4YjBhZGsya3BjcWV4dGZkdGcifQ.example';

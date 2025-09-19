@@ -39,7 +39,7 @@ import {
   Home,
   Terrain
 } from '@mui/icons-material';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '../../store/authStore';
 
 const drawerWidth = 280;
 

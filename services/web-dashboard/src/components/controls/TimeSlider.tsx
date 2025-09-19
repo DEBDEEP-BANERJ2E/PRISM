@@ -20,7 +20,7 @@ import {
   Timeline
 } from '@mui/icons-material';
 import { format, subHours, subDays, subWeeks } from 'date-fns';
-import { useDashboardStore } from '@/store/dashboardStore';
+import { useDashboardStore } from '../../store/dashboardStore';
 
 interface TimeSliderProps {
   className?: string;

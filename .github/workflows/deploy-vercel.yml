@@ -1,0 +1,251 @@
+name: 🚀 Deploy to Vercel
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['services/web-dashboard/**']
+  pull_request:
+    branches: [main]
+    paths: ['services/web-dashboard/**']
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  # 🧪 Test before deployment
+  test:
+    name: 🧪 Test Web Dashboard
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: services/web-dashboard/package-lock.json
+
+      - name: 📥 Install dependencies
+        working-directory: services/web-dashboard
+        run: npm ci
+
+      - name: 🔍 Lint code
+        working-directory: services/web-dashboard
+        run: npm run lint
+
+      - name: 🔧 Type check
+        working-directory: services/web-dashboard
+        run: npm run type-check
+
+      - name: 🧪 Run tests
+        working-directory: services/web-dashboard
+        run: npm test
+
+      - name: 🏗️ Test build
+        working-directory: services/web-dashboard
+        run: npm run build
+
+  # 🚀 Deploy to Vercel
+  deploy:
+    name: 🚀 Deploy to Vercel
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: services/web-dashboard/package-lock.json
+
+      - name: 📥 Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: 🔧 Pull Vercel Environment Information
+        working-directory: services/web-dashboard
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: 🏗️ Build Project Artifacts
+        working-directory: services/web-dashboard
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: 🚀 Deploy to Preview
+        id: deploy-preview
+        if: github.event_name == 'pull_request'
+        working-directory: services/web-dashboard
+        run: |
+          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "preview-url=$url" >> $GITHUB_OUTPUT
+
+      - name: 🚀 Deploy to Production
+        id: deploy-production
+        if: github.ref == 'refs/heads/main'
+        working-directory: services/web-dashboard
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "production-url=$url" >> $GITHUB_OUTPUT
+
+      - name: 🚀 Deploy to Staging
+        id: deploy-staging
+        if: github.ref == 'refs/heads/develop'
+        working-directory: services/web-dashboard
+        run: |
+          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "staging-url=$url" >> $GITHUB_OUTPUT
+
+      # 💬 Comment on PR with preview URL
+      - name: 💬 Comment Preview URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Deployment Preview
+              
+              Your changes have been deployed to Vercel!
+              
+              **Preview URL**: ${{ steps.deploy-preview.outputs.preview-url }}
+              
+              ### 📊 Deployment Details
+              - **Environment**: Preview
+              - **Branch**: \`${{ github.head_ref }}\`
+              - **Commit**: \`${{ github.sha }}\`
+              - **Deployed by**: @${{ github.actor }}
+              
+              ### 🧪 Testing Checklist
+              - [ ] Landing page loads correctly
+              - [ ] Navigation works properly
+              - [ ] 3D visualizations render
+              - [ ] Mobile responsiveness
+              - [ ] Performance is acceptable
+              
+              *This comment will be updated with each new deployment.*`
+            })
+
+  # 🧪 Post-deployment tests
+  e2e-tests:
+    name: 🧪 E2E Tests
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: 📥 Install Playwright
+        working-directory: services/web-dashboard
+        run: |
+          npm install @playwright/test
+          npx playwright install
+
+      - name: 🧪 Run E2E tests
+        working-directory: services/web-dashboard
+        run: npx playwright test
+        env:
+          BASE_URL: ${{ steps.deploy-production.outputs.production-url || 'https://prism-web-dashboard.vercel.app' }}
+
+      - name: 📊 Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: playwright-report
+          path: services/web-dashboard/playwright-report/
+
+  # 📊 Performance audit
+  lighthouse:
+    name: 📊 Lighthouse Audit
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📊 Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: |
+            ${{ steps.deploy-production.outputs.production-url || 'https://prism-web-dashboard.vercel.app' }}
+          configPath: services/web-dashboard/lighthouserc.json
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+  # 📢 Notifications
+  notify:
+    name: 📢 Notify Team
+    runs-on: ubuntu-latest
+    needs: [deploy, e2e-tests, lighthouse]
+    if: always() && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: 📢 Slack Notification - Success
+        if: needs.deploy.result == 'success'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#prism-deployments'
+          message: |
+            🚀 PRISM Web Dashboard deployed successfully!
+            
+            **Environment**: Production
+            **URL**: ${{ steps.deploy-production.outputs.production-url }}
+            **Commit**: ${{ github.sha }}
+            **Author**: ${{ github.actor }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: 📢 Slack Notification - Failure
+        if: needs.deploy.result == 'failure'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#prism-deployments'
+          message: |
+            ❌ PRISM Web Dashboard deployment failed!
+            
+            **Environment**: Production
+            **Commit**: ${{ github.sha }}
+            **Author**: ${{ github.actor }}
+            **Check**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: 📧 Email Notification
+        if: needs.deploy.result == 'failure'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "🚨 PRISM Deployment Failed"
+          body: |
+            The PRISM Web Dashboard deployment has failed.
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            
+            Please check the GitHub Actions logs for more details:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: devops@prism-ai.com
+          from: github-actions@prism-ai.com

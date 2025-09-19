@@ -1654,13 +1654,13 @@ const LandingPage: React.FC = () => {
                 email: 'ahana@prism-ai.com'
               },
               {
-                name: 'Sheyas Chanda',
-                role: 'Lead IoT and Software Management, Cybersecurity and Full-Stack Specialist',
-                image: 'https://media.licdn.com/dms/image/v2/D4E03AQE1d9pmEPdQ6g/profile-displayphoto-scale_400_400/B4EZiOnXnhGcAg-/0/1754739344255?e=1761177600&v=beta&t=ak1Wu_FdzrNDWKQvvXJoBEcSdrz89Yg6j9fYxsAYaFA',
-                skills: ['React/TypeScript', 'Node.js', 'Machine Learning', 'React-Native and Flutter', 'Node.js', 'Cybersecurity', 'IoT dev', 'Hardware dev'],
-                linkedin: 'https://www.linkedin.com/in/shreyash-chanda-171660327/',
+                name: 'Supratik Biswas',
+                role: 'IoT and software dev',
+                image: 'https://media.licdn.com/dms/image/v2/D4E35AQH7JMnkYopCRA/profile-framedphoto-shrink_400_400/profile-framedphoto-shrink_400_400/0/1736518046783?e=1758855600&v=beta&t=AZz4H6BJ5u11xySqmyE56d6rC9bGkPZYxgmfkGXgCHk',
+                skills: ['React/TypeScript', 'IoT dev', 'Hardware dev'],
+                linkedin: 'https://www.linkedin.com/in/supratik-biswas-396793335/',
                 github: 'https://github.com/alex-kim',
-                email: 'shreyas@prism-ai.com'
+                email: 'supratik@prism-ai.com'
               },
               {
                 name: 'Arka Manna',

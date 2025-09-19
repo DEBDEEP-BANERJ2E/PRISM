@@ -160,14 +160,34 @@ kubectl get pods -n prism
 kubectl port-forward svc/prism-web 3000:3000
 ```
 
+### 🌐 Vercel Deployment (Web Dashboard)
+
+```bash
+# Navigate to web dashboard
+cd services/web-dashboard
+
+# Install Vercel CLI
+npm install -g vercel
+
+# Deploy to preview
+./deploy.sh preview
+
+# Deploy to production
+./deploy.sh production
+```
+
+**Automatic Deployment**: The web dashboard automatically deploys to Vercel when changes are pushed to the main branch.
+
 ---
 
 ## 📱 Applications
 
 ### 🌐 Web Dashboard
-- **URL**: http://localhost:3000
+- **Production URL**: https://prism-web-dashboard.vercel.app
+- **Local URL**: http://localhost:3000
 - **Features**: Real-time monitoring, analytics, system configuration
 - **Tech Stack**: React, TypeScript, Material-UI, Three.js
+- **Deployment**: Vercel (automatic deployment from main branch)
 
 ### 📱 Mobile Application
 - **Platform**: iOS & Android (React Native)

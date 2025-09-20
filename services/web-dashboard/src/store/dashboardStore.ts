@@ -59,7 +59,7 @@ export const useDashboardStore = create<DashboardStore>()(
     },
     selectedSensors: [],
     riskThreshold: 0.5,
-    viewMode: '3d',
+    viewMode: '2d',
     animationSpeed: 1.0,
     showAlerts: true,
     showSensorHealth: true,

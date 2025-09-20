@@ -42,10 +42,10 @@ interface MapboxViewProps {
   interactive?: boolean;
 }
 
-const MapboxView: React.FC<MapboxViewProps> = ({ 
-  height = '100%', 
-  showControls = true, 
-  interactive = true 
+const MapboxView: React.FC<MapboxViewProps> = ({
+  height = '100%',
+  showControls = true,
+  interactive = true
 }) => {
   const theme = useTheme();
   const mapRef = useRef<any>(null);
@@ -190,6 +190,12 @@ const MapboxView: React.FC<MapboxViewProps> = ({
         mapStyle={mapStyle}
         interactive={interactive}
         attributionControl={false}
+        onError={(error) => {
+          console.error('Mapbox Error:', error);
+        }}
+        onLoad={() => {
+          console.log('Mapbox map loaded successfully');
+        }}
       >
         {/* Mine Boundary */}
         <Source id="mine-boundary" type="geojson" data={mineBoundary}>
@@ -271,7 +277,7 @@ const MapboxView: React.FC<MapboxViewProps> = ({
                           label={selectedSensor.operational_status}
                           color={
                             selectedSensor.operational_status === 'active' ? 'success' :
-                            selectedSensor.operational_status === 'warning' ? 'warning' : 'error'
+                              selectedSensor.operational_status === 'warning' ? 'warning' : 'error'
                           }
                         />
                       </Box>
@@ -304,8 +310,8 @@ const MapboxView: React.FC<MapboxViewProps> = ({
                     {/* Communication Status */}
                     <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                       <Box display="flex" alignItems="center" gap={1}>
-                        {selectedSensor.last_communication && 
-                         (Date.now() - selectedSensor.last_communication.getTime()) < 300000 ? (
+                        {selectedSensor.last_communication &&
+                          (Date.now() - selectedSensor.last_communication.getTime()) < 300000 ? (
                           <SignalWifi4Bar color="success" />
                         ) : (
                           <SignalWifiOff color="error" />
@@ -313,7 +319,7 @@ const MapboxView: React.FC<MapboxViewProps> = ({
                         <Typography variant="body2">Signal</Typography>
                       </Box>
                       <Typography variant="body2" color="text.secondary">
-                        {selectedSensor.last_communication ? 
+                        {selectedSensor.last_communication ?
                           `${Math.round((Date.now() - selectedSensor.last_communication.getTime()) / 60000)}m ago` :
                           'No signal'
                         }
@@ -401,7 +407,7 @@ const MapboxView: React.FC<MapboxViewProps> = ({
                   </Button>
                 ))}
               </Box>
-              
+
               <Box mt={2}>
                 <Button
                   size="small"

@@ -78,7 +78,7 @@ function FallingRocks() {
           ]}
           rotation={[Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI]}
         >
-          <dodecahedronGeometry args={[1, 0]} />
+          <dodecahedronGeometry args={[1]} />
           <meshStandardMaterial
             color={i % 3 === 0 ? '#8d6e63' : i % 3 === 1 ? '#5d4037' : '#6d4c41'}
             roughness={0.9}

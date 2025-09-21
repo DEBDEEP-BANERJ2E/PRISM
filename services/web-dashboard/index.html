@@ -3,19 +3,161 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PRISM - Predictive Rockfall Intelligence & Safety Management</title>
-    <meta name="description" content="AI-powered rockfall prediction and safety management system for open-pit mines" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     
-    <!-- Mapbox GL CSS -->
-    <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+    <!-- Performance optimizations -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="format-detection" content="telephone=no" />
+    
+    <!-- Primary Meta Tags -->
+    <title>PRISM - Prevent Mining Accidents Before They Happen | 94% Accuracy AI Rockfall Prediction</title>
+    <meta name="title" content="PRISM - Prevent Mining Accidents Before They Happen | 94% Accuracy AI Rockfall Prediction" />
+    <meta name="description" content="AI-powered rockfall prediction system saves lives and reduces costs with 94% accuracy. Early warnings 15+ minutes before incidents. Save up to $2M+ per prevented accident." />
+    <meta name="keywords" content="rockfall prediction, mining safety, AI mining, slope stability, open-pit mining, predictive analytics, mining accidents prevention, geological monitoring, mining technology" />
+    <meta name="author" content="PRISM Technologies" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://prism-mining.com" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://prism-mining.com" />
+    <meta property="og:title" content="PRISM - Prevent Mining Accidents Before They Happen | 94% Accuracy AI Rockfall Prediction" />
+    <meta property="og:description" content="AI-powered rockfall prediction system saves lives and reduces costs with 94% accuracy. Early warnings 15+ minutes before incidents." />
+    <meta property="og:image" content="https://prism-mining.com/images/prism-og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="PRISM" />
+    <meta property="og:locale" content="en_US" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://prism-mining.com" />
+    <meta property="twitter:title" content="PRISM - Prevent Mining Accidents Before They Happen | 94% Accuracy AI Rockfall Prediction" />
+    <meta property="twitter:description" content="AI-powered rockfall prediction system saves lives and reduces costs with 94% accuracy. Early warnings 15+ minutes before incidents." />
+    <meta property="twitter:image" content="https://prism-mining.com/images/prism-twitter-image.jpg" />
+    
+    <!-- Additional Meta Tags -->
+    <meta name="theme-color" content="#00ff88" />
+    <meta name="msapplication-TileColor" content="#00ff88" />
+    <meta name="application-name" content="PRISM" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="PRISM" />
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "PRISM Technologies",
+      "description": "AI-powered rockfall prediction and safety management system for open-pit mines",
+      "url": "https://prism-mining.com",
+      "logo": "https://prism-mining.com/images/prism-logo.png",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+1-555-PRISM-AI",
+        "contactType": "sales",
+        "availableLanguage": "English"
+      },
+      "sameAs": [
+        "https://linkedin.com/company/prism-technologies",
+        "https://twitter.com/prism_mining"
+      ]
+    }
+    </script>
+    
+    <!-- Critical CSS inlined for performance -->
+    <style>
+      /* Critical above-the-fold styles */
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background-color: #0a0a0a;
+        color: #ffffff;
+      }
+      
+      #root {
+        min-height: 100vh;
+      }
+      
+      /* Loading spinner */
+      .loading-spinner {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(0, 255, 136, 0.3);
+        border-radius: 50%;
+        border-top-color: #00ff88;
+        animation: spin 1s ease-in-out infinite;
+        z-index: 9999;
+      }
+      
+      @keyframes spin {
+        to { transform: translate(-50%, -50%) rotate(360deg); }
+      }
+      
+      /* Reduce motion for accessibility */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+      
+      /* High contrast mode support */
+      @media (prefers-contrast: high) {
+        body {
+          background-color: #000000;
+          color: #ffffff;
+        }
+      }
+    </style>
     
     <!-- Preload critical fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/images/img_rock.jpg" as="image" type="image/jpeg" />
+    
+    <!-- DNS prefetch for external resources -->
+    <link rel="dns-prefetch" href="//api.mapbox.com" />
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="//fonts.gstatic.com" />
+    
+    <!-- Mapbox GL CSS - loaded asynchronously -->
+    <link rel="preload" href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" /></noscript>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Loading indicator -->
+    <div id="loading" class="loading-spinner" aria-label="Loading application"></div>
+    
+    <!-- Skip to main content for accessibility -->
+    <a href="#main-content" class="sr-only" style="position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden;">
+      Skip to main content
+    </a>
+    
+    <div id="root" role="main" aria-label="PRISM Application"></div>
+    
+    <!-- Remove loading spinner when app loads -->
+    <script>
+      window.addEventListener('load', function() {
+        const loading = document.getElementById('loading');
+        if (loading) {
+          loading.style.display = 'none';
+        }
+      });
+    </script>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

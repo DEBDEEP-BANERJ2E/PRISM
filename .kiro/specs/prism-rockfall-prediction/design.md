@@ -70,7 +70,6 @@ graph TB
     end
 ```
 
-
 ### Edge Intelligence Architecture
 
 The edge layer implements a distributed intelligence network where each hexapod sensor pod acts as an autonomous data collection and processing node:

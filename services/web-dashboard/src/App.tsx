@@ -7,6 +7,7 @@ import { AnimatePresence } from 'framer-motion';
 
 // Pages
 import LandingPage from './pages/LandingPage';
+import AppBriefPage from './pages/AppBriefPage';
 import PricingPage from './pages/PricingPage';
 import WaitlistPage from './pages/WaitlistPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -159,11 +160,12 @@ const App: React.FC = () => {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AnimatePresence mode="wait">
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<LandingPage />} />
+              <Route path="/brief" element={<AppBriefPage />} />
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/waitlist" element={<WaitlistPage />} />
               <Route path="/login" element={<LoginPage />} />

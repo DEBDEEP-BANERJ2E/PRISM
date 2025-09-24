@@ -1,31 +1,36 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { AnimatePresence } from 'framer-motion';
 
-// Pages
-import LandingPage from './pages/LandingPage';
-import AppBriefPage from './pages/AppBriefPage';
-import PricingPage from './pages/PricingPage';
-import WaitlistPage from './pages/WaitlistPage';
-import LoginPage from './pages/auth/LoginPage';
-import HomePage from './pages/HomePage';
-import Dashboard from './pages/Dashboard';
-import RiskAssessmentPage from './pages/risk/RiskAssessmentPage';
-import SensorManagementPage from './pages/sensors/SensorManagementPage';
-import AlertsPage from './pages/alerts/AlertsPage';
-import AnalyticsPage from './pages/analytics/AnalyticsPage';
-import DigitalTwinPage from './pages/digital-twin/DigitalTwinPage';
-import ScenarioPage from './pages/scenario/ScenarioPage';
-import ReportsPage from './pages/reports/ReportsPage';
-import SettingsPage from './pages/settings/SettingsPage';
-import ProfilePage from './pages/profile/ProfilePage';
+// Pages - Lazy loaded for performance
+const LandingPage = React.lazy(() => import('./pages/LandingPage'));
+const AppBriefPage = React.lazy(() => import('./pages/AppBriefPage'));
+const PricingPage = React.lazy(() => import('./pages/PricingPage'));
+const WaitlistPage = React.lazy(() => import('./pages/WaitlistPage'));
+const LoginPage = React.lazy(() => import('./pages/auth/LoginPage'));
+const HomePage = React.lazy(() => import('./pages/HomePage'));
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const DataInputPage = React.lazy(() => import('./pages/data-input/DataInputPage'));
+const ModelConfigurationPage = React.lazy(() => import('./pages/models-config/ModelConfigurationPage'));
+const AnalyticsPage = React.lazy(() => import('./pages/analytics/AnalyticsPage'));
+const ReportsPage = React.lazy(() => import('./pages/reports/ReportsPage'));
+const ScenarioPage = React.lazy(() => import('./pages/scenario/ScenarioPage'));
+const RiskAssessmentPage = React.lazy(() => import('./pages/risk/RiskAssessmentPage'));
+const SensorManagementPage = React.lazy(() => import('./pages/sensors/SensorManagementPage'));
+const AlertsPage = React.lazy(() => import('./pages/alerts/AlertsPage'));
+const DigitalTwinPage = React.lazy(() => import('./pages/digital-twin/DigitalTwinPage'));
+const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'));
+const ProfilePage = React.lazy(() => import('./pages/profile/ProfilePage'));
 
-// Layout
+// Layout and Components
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import MainLayout from './components/layout/MainLayout';
+import GlobalErrorBoundary from './components/common/GlobalErrorBoundary';
+import NotificationSystem from './components/common/NotificationSystem';
+import LoadingOverlay from './components/common/LoadingOverlay';
 
 // Create dark theme for the dashboard
 const darkTheme = createTheme({
@@ -157,42 +162,49 @@ const queryClient = new QueryClient({
 
 const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={darkTheme}>
-        <CssBaseline />
-        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <AnimatePresence mode="wait">
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/brief" element={<AppBriefPage />} />
-              <Route path="/pricing" element={<PricingPage />} />
-              <Route path="/waitlist" element={<WaitlistPage />} />
-              <Route path="/login" element={<LoginPage />} />
+    <GlobalErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider theme={darkTheme}>
+          <CssBaseline />
+          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <NotificationSystem />
+            <AnimatePresence mode="wait">
+              <Suspense fallback={<LoadingOverlay open={true} message="Loading application..." />}>
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/brief" element={<AppBriefPage />} />
+                  <Route path="/pricing" element={<PricingPage />} />
+                  <Route path="/waitlist" element={<WaitlistPage />} />
+                  <Route path="/login" element={<LoginPage />} />
 
-              {/* Protected Routes */}
-              <Route path="/app" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-                <Route index element={<Navigate to="/app/home" replace />} />
-                <Route path="home" element={<HomePage />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="risk" element={<RiskAssessmentPage />} />
-                <Route path="sensors" element={<SensorManagementPage />} />
-                <Route path="alerts" element={<AlertsPage />} />
-                <Route path="analytics" element={<AnalyticsPage />} />
-                <Route path="digital-twin" element={<DigitalTwinPage />} />
-                <Route path="scenario" element={<ScenarioPage />} />
-                <Route path="reports" element={<ReportsPage />} />
-                <Route path="settings" element={<SettingsPage />} />
-                <Route path="profile" element={<ProfilePage />} />
-              </Route>
+                  {/* Protected Routes */}
+                  <Route path="/app" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+                    <Route index element={<Navigate to="/app/home" replace />} />
+                    <Route path="home" element={<HomePage />} />
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="data-input" element={<DataInputPage />} />
+                    <Route path="model-config" element={<ModelConfigurationPage />} />
+                    <Route path="analytics" element={<AnalyticsPage />} />
+                    <Route path="reports" element={<ReportsPage />} />
+                    <Route path="scenario" element={<ScenarioPage />} />
+                    <Route path="risk" element={<RiskAssessmentPage />} />
+                    <Route path="sensors" element={<SensorManagementPage />} />
+                    <Route path="alerts" element={<AlertsPage />} />
+                    <Route path="digital-twin" element={<DigitalTwinPage />} />
+                    <Route path="settings" element={<SettingsPage />} />
+                    <Route path="profile" element={<ProfilePage />} />
+                  </Route>
 
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </AnimatePresence>
-        </Router>
-      </ThemeProvider>
-    </QueryClientProvider>
+                  {/* Fallback */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
+            </AnimatePresence>
+          </Router>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </GlobalErrorBoundary>
   );
 };
 

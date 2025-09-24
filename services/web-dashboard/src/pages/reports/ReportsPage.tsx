@@ -1,6 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { gsap } from 'gsap';
+import WorkflowGuard from '../../components/workflow/WorkflowGuard';
+import { Card as CustomCard } from '../../components/common/Card';
+import { Progress } from '../../components/common/Progress';
+import { ReportPreview } from '../../components/data-science/ReportPreview';
+import { SectionEditor } from '../../components/data-science/SectionEditor';
+import { ExportControls } from '../../components/data-science/ExportControls';
+import { ReportHistory } from '../../components/data-science/ReportHistory';
+import { TemplateManager } from '../../components/data-science/TemplateManager';
+import { Tabs as CustomTabs, TabsList, TabsTrigger, TabsContent } from '../../components/common/Tabs';
+import { 
+  AnalyticsData, 
+  ReportConfiguration, 
+  ReportMetadata, 
+  ReportStatus,
+  ReportTemplate,
+  ReportHistoryItem
+} from '../../types/dataScience';
+import { reportsAPI } from '../../api/dataScience/reports';
+import '../../components/data-science/reports.css';
 import {
   Box,
   Grid,
@@ -120,7 +139,7 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-const ReportsPage: React.FC = () => {
+const ReportsPageUI: React.FC<ReportsPageProps> = () => {
   const theme = useTheme();
   const [tabValue, setTabValue] = useState(0);
   const [reports, setReports] = useState<Report[]>([]);
@@ -907,4 +926,300 @@ const ReportsPage: React.FC = () => {
   );
 };
 
-export default ReportsPage;
+// Workflow-wrapped component for UI version
+const ReportsPageWithWorkflowUI: React.FC<ReportsPageProps> = (props) => {
+  return (
+    <WorkflowGuard requiredStep="reports">
+      <ReportsPageUI {...props} />
+    </WorkflowGuard>
+  );
+};
+
+// Keep the UI version as the main export
+
+// Add the data science version as ReportsPageContent
+interface ReportsPageProps {
+  analyticsData?: AnalyticsData;
+  trainingHistory?: any[];
+}
+
+const ReportsPageContent: React.FC<ReportsPageProps> = ({
+  analyticsData,
+  trainingHistory = [] // eslint-disable-line @typescript-eslint/no-unused-vars
+}) => {
+  const [activeTab, setActiveTab] = useState('preview');
+  const [reportConfig, setReportConfig] = useState<ReportConfiguration>({
+    templateId: 'default',
+    format: 'pdf',
+    includeCharts: true,
+    includeRawData: false,
+    sections: [
+      { id: 'summary', name: 'Executive Summary', enabled: true, order: 1 },
+      { id: 'data_overview', name: 'Data Overview', enabled: true, order: 2 },
+      { id: 'model_performance', name: 'Model Performance', enabled: true, order: 3 },
+      { id: 'features', name: 'Feature Analysis', enabled: true, order: 4 },
+      { id: 'recommendations', name: 'Recommendations', enabled: true, order: 5 }
+    ]
+  });
+  const [reportMetadata, setReportMetadata] = useState<ReportMetadata>({
+    title: 'Data Science Analysis Report',
+    author: 'PRISM System',
+    version: '1.0',
+    description: 'Comprehensive analysis of machine learning models and data insights'
+  });
+  const [generationStatus, setGenerationStatus] = useState<ReportStatus | null>(null);
+  const [reportHistory, setReportHistory] = useState<ReportHistoryItem[]>([]);
+  const [templates, setTemplates] = useState<ReportTemplate[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    loadReportHistory();
+    loadTemplates();
+  }, []);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (generationStatus && generationStatus.status === 'generating') {
+      interval = setInterval(checkGenerationStatus, 2000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [generationStatus]);
+
+  const loadReportHistory = async () => {
+    try {
+      const history = await reportsAPI.getReportHistory();
+      setReportHistory(history.reports);
+    } catch (error) {
+      console.error('Failed to load report history:', error);
+    }
+  };
+
+  const loadTemplates = async () => {
+    try {
+      const templateList = await reportsAPI.getTemplates();
+      setTemplates(templateList);
+    } catch (error) {
+      console.error('Failed to load templates:', error);
+    }
+  };
+
+  const checkGenerationStatus = async () => {
+    if (!generationStatus?.reportId) return;
+
+    try {
+      const status = await reportsAPI.getReportStatus(generationStatus.reportId);
+      setGenerationStatus(status);
+
+      if (status.status === 'completed' || status.status === 'failed') {
+        setIsGenerating(false);
+        if (status.status === 'completed') {
+          loadReportHistory(); // Refresh history
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check generation status:', error);
+      setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    if (!analyticsData) {
+      alert('No analytics data available. Please run model training first.');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const response = await reportsAPI.generateReport({
+        analyticsData,
+        configuration: reportConfig,
+        metadata: reportMetadata
+      });
+
+      setGenerationStatus({
+        reportId: response.reportId,
+        status: 'generating',
+        progress: 0,
+        startedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Failed to generate report:', error);
+      setIsGenerating(false);
+      alert('Failed to generate report. Please try again.');
+    }
+  };
+
+  const handleDownloadReport = async (reportId: string) => {
+    try {
+      await reportsAPI.getReportContent(reportId);
+    } catch (error) {
+      console.error('Failed to download report:', error);
+      alert('Failed to download report. Please try again.');
+    }
+  };
+
+  const handleConfigChange = (newConfig: Partial<ReportConfiguration>) => {
+    setReportConfig(prev => ({ ...prev, ...newConfig }));
+  };
+
+  const handleMetadataChange = (newMetadata: Partial<ReportMetadata>) => {
+    setReportMetadata(prev => ({ ...prev, ...newMetadata }));
+  };
+
+  const handleTemplateSelect = (template: ReportTemplate) => {
+    setReportConfig(prev => ({
+      ...prev,
+      templateId: template.id,
+      sections: template.sections.map((sectionId, index) => ({
+        id: sectionId,
+        name: getSectionName(sectionId),
+        enabled: true,
+        order: index + 1
+      }))
+    }));
+  };
+
+  const getSectionName = (sectionId: string): string => {
+    const sectionNames: { [key: string]: string } = {
+      summary: 'Executive Summary',
+      data_overview: 'Data Overview',
+      model_performance: 'Model Performance',
+      features: 'Feature Analysis',
+      recommendations: 'Recommendations',
+      technical_details: 'Technical Details'
+    };
+    return sectionNames[sectionId] || sectionId;
+  };
+
+  const tabs = [
+    { id: 'preview', label: 'Preview', icon: '👁️' },
+    { id: 'sections', label: 'Sections', icon: '📝' },
+    { id: 'export', label: 'Export', icon: '📤' },
+    { id: 'history', label: 'History', icon: '📚' },
+    { id: 'templates', label: 'Templates', icon: '📋' }
+  ];
+
+  return (
+    <div className="reports-page">
+      <div className="page-header">
+        <h1>Reports & Documentation</h1>
+        <p>Generate comprehensive reports from your data science analysis</p>
+      </div>
+
+      {/* Generation Status */}
+      {isGenerating && generationStatus && (
+        <Card className="generation-status">
+          <div className="status-header">
+            <h3>Generating Report...</h3>
+            <span className="status-badge status-generating">
+              {generationStatus.status}
+            </span>
+          </div>
+          <Progress 
+            value={generationStatus.progress} 
+            max={100}
+            className="generation-progress"
+          />
+          <p className="status-message">
+            {generationStatus.progress < 30 && 'Preparing report content...'}
+            {generationStatus.progress >= 30 && generationStatus.progress < 70 && 'Generating visualizations...'}
+            {generationStatus.progress >= 70 && generationStatus.progress < 100 && 'Creating PDF document...'}
+            {generationStatus.progress === 100 && 'Report completed!'}
+          </p>
+          {generationStatus.status === 'completed' && generationStatus.downloadUrl && (
+            <button 
+              className="btn btn-primary"
+              onClick={() => handleDownloadReport(generationStatus.reportId)}
+            >
+              Download Report
+            </button>
+          )}
+          {generationStatus.status === 'failed' && (
+            <div className="error-message">
+              Report generation failed: {generationStatus.error}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Main Content */}
+      <div className="reports-content">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="reports-tabs"
+        >
+          <TabsList>
+            {tabs.map(tab => (
+              <TabsTrigger key={tab.id} value={tab.id}>
+                {tab.icon} {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value="preview">
+            <ReportPreview
+              analyticsData={analyticsData}
+              configuration={reportConfig}
+              metadata={reportMetadata}
+              onConfigChange={handleConfigChange}
+              onMetadataChange={handleMetadataChange}
+            />
+          </TabsContent>
+          <TabsContent value="sections">
+            <SectionEditor
+              configuration={reportConfig}
+              onConfigChange={handleConfigChange}
+              availableSections={[
+                { id: 'summary', name: 'Executive Summary', description: 'High-level overview and key findings' },
+                { id: 'data_overview', name: 'Data Overview', description: 'Dataset statistics and quality metrics' },
+                { id: 'model_performance', name: 'Model Performance', description: 'Training results and validation metrics' },
+                { id: 'features', name: 'Feature Analysis', description: 'Feature importance and correlations' },
+                { id: 'recommendations', name: 'Recommendations', description: 'Actionable insights and next steps' },
+                { id: 'technical_details', name: 'Technical Details', description: 'Detailed configuration and parameters' }
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="export">
+            <ExportControls
+              configuration={reportConfig}
+              metadata={reportMetadata}
+              onConfigChange={handleConfigChange}
+              onMetadataChange={handleMetadataChange}
+              onGenerate={handleGenerateReport}
+              isGenerating={isGenerating}
+              hasData={!!analyticsData}
+            />
+          </TabsContent>
+          <TabsContent value="history">
+            <ReportHistory
+              reports={reportHistory}
+              onDownload={handleDownloadReport}
+              onRefresh={loadReportHistory}
+            />
+          </TabsContent>
+          <TabsContent value="templates">
+            <TemplateManager
+              templates={templates}
+              currentTemplate={reportConfig.templateId}
+              onTemplateSelect={handleTemplateSelect}
+              onRefresh={loadTemplates}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+};
+
+// Workflow-wrapped component for data science version
+const ReportsPageWithWorkflow: React.FC<ReportsPageProps> = (props) => {
+  return (
+    <WorkflowGuard requiredStep="reports">
+      <ReportsPageContent {...props} />
+    </WorkflowGuard>
+  );
+};
+
+export default ReportsPageUI;

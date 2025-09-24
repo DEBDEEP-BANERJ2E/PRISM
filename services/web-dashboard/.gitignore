@@ -1,1 +1,5 @@
 .vercel
+.env
+.env.test
+.env.production
+.env.example

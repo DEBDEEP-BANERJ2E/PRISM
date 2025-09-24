@@ -6,9 +6,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SpatialLocation = exports.SpatialLocationSchema = void 0;
 const proj4_1 = __importDefault(require("proj4"));
 const zod_1 = require("zod");
+// Define coordinate system projections
 const WGS84 = 'EPSG:4326';
-const UTM_ZONE_33N = '+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs';
-const MINE_GRID = '+proj=tmerc +lat_0=0 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs';
+const UTM_ZONE_33N = '+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs'; // Example UTM zone
+const MINE_GRID = '+proj=tmerc +lat_0=0 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'; // Custom mine grid
+// Validation schema for SpatialLocation
 exports.SpatialLocationSchema = zod_1.z.object({
     latitude: zod_1.z.number().min(-90).max(90),
     longitude: zod_1.z.number().min(-180).max(180),
@@ -30,6 +32,7 @@ class SpatialLocation {
         this.coordinate_system = validated.coordinate_system;
         this.accuracy = validated.accuracy;
         this.timestamp = validated.timestamp;
+        // Auto-calculate UTM and mine grid coordinates if not provided
         if (!validated.utm_x || !validated.utm_y) {
             const utmCoords = this.toUTM();
             this.utm_x = validated.utm_x || utmCoords.x;
@@ -49,6 +52,9 @@ class SpatialLocation {
             this.mine_grid_y = validated.mine_grid_y;
         }
     }
+    /**
+     * Convert WGS84 coordinates to UTM
+     */
     toUTM() {
         const utmCoords = (0, proj4_1.default)(WGS84, UTM_ZONE_33N, [this.longitude, this.latitude]);
         return {
@@ -57,6 +63,9 @@ class SpatialLocation {
             zone: '33N'
         };
     }
+    /**
+     * Convert WGS84 coordinates to mine grid system
+     */
     toMineGrid() {
         const mineCoords = (0, proj4_1.default)(WGS84, MINE_GRID, [this.longitude, this.latitude]);
         return {
@@ -64,8 +73,11 @@ class SpatialLocation {
             y: mineCoords[1]
         };
     }
+    /**
+     * Calculate distance to another spatial location in meters
+     */
     distanceTo(other) {
-        const R = 6371000;
+        const R = 6371000; // Earth's radius in meters
         const lat1Rad = this.latitude * Math.PI / 180;
         const lat2Rad = other.latitude * Math.PI / 180;
         const deltaLatRad = (other.latitude - this.latitude) * Math.PI / 180;
@@ -76,6 +88,9 @@ class SpatialLocation {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     }
+    /**
+     * Calculate bearing to another spatial location in degrees
+     */
     bearingTo(other) {
         const lat1Rad = this.latitude * Math.PI / 180;
         const lat2Rad = other.latitude * Math.PI / 180;
@@ -86,13 +101,22 @@ class SpatialLocation {
         const bearingRad = Math.atan2(y, x);
         return ((bearingRad * 180 / Math.PI) + 360) % 360;
     }
+    /**
+     * Validate spatial data integrity
+     */
     static validate(data) {
         return exports.SpatialLocationSchema.parse(data);
     }
+    /**
+     * Check if coordinates are within valid bounds
+     */
     isValid() {
         return this.latitude >= -90 && this.latitude <= 90 &&
             this.longitude >= -180 && this.longitude <= 180;
     }
+    /**
+     * Convert to GeoJSON Point
+     */
     toGeoJSON() {
         return {
             type: 'Point',
@@ -108,6 +132,9 @@ class SpatialLocation {
             }
         };
     }
+    /**
+     * Create from GeoJSON Point
+     */
     static fromGeoJSON(geojson) {
         if (geojson.type !== 'Point' || !Array.isArray(geojson.coordinates)) {
             throw new Error('Invalid GeoJSON Point format');
@@ -127,6 +154,9 @@ class SpatialLocation {
             timestamp: properties.timestamp ? new Date(properties.timestamp) : undefined
         });
     }
+    /**
+     * Serialize to JSON
+     */
     toJSON() {
         return {
             latitude: this.latitude,

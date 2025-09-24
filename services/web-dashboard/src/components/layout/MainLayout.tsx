@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -37,33 +37,85 @@ import {
   Logout,
   Notifications,
   Home,
-  Terrain
+  Terrain,
+  Upload
 } from '@mui/icons-material';
 import { useAuthStore } from '../../store/authStore';
 
 const drawerWidth = 280;
 
+import { useWorkflowStore } from '../../store/workflowStore';
+import WorkflowNavigation from '../workflow/WorkflowNavigation';
+
 const navigationItems = [
   { path: '/app/home', label: 'Home', icon: Home },
   { path: '/app/dashboard', label: 'Dashboard', icon: Dashboard },
-  { path: '/app/risk', label: 'Risk Assessment', icon: Assessment },
+  { 
+    path: '/app/data-input', 
+    label: 'Data Input', 
+    icon: Upload,
+    workflowStep: 'data-input' as const
+  },
+  { 
+    path: '/app/model-config', 
+    label: 'Model Configuration', 
+    icon: Settings,
+    workflowStep: 'model-config' as const
+  },
+  { 
+    path: '/app/analytics', 
+    label: 'Analytics', 
+    icon: Analytics,
+    workflowStep: 'analytics' as const
+  },
+  { 
+    path: '/app/reports', 
+    label: 'Reports', 
+    icon: Description,
+    workflowStep: 'reports' as const
+  },
+  { 
+    path: '/app/scenario', 
+    label: 'Scenario Planning', 
+    icon: Science,
+    workflowStep: 'scenario' as const
+  },
+  { 
+    path: '/app/risk', 
+    label: 'Risk Assessment', 
+    icon: Assessment,
+    workflowStep: 'risk-assessment' as const
+  },
   { path: '/app/sensors', label: 'Sensor Management', icon: Sensors },
   { path: '/app/alerts', label: 'Alerts & Notifications', icon: Warning },
-  { path: '/app/analytics', label: 'Analytics', icon: Analytics },
-  { path: '/app/digital-twin', label: 'Digital Twin', icon: ViewInAr },
-  { path: '/app/scenario', label: 'Scenario Planning', icon: Science },
-  { path: '/app/reports', label: 'Reports', icon: Description }
+  { path: '/app/digital-twin', label: 'Digital Twin', icon: ViewInAr }
 ];
 
 const MainLayout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [showWorkflowNav, setShowWorkflowNav] = useState(false);
   
   const { user, logout } = useAuthStore();
+  
+  // Safely get workflow store with fallbacks
+  const workflowStore = useWorkflowStore();
+  const canNavigateToStep = workflowStore?.canNavigateToStep || (() => true);
+  const addNotification = workflowStore?.addNotification || (() => {});
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  // Check if current path is part of workflow
+  const isWorkflowPath = navigationItems.some(
+    item => item.workflowStep && item.path === location.pathname
+  );
+
+  useEffect(() => {
+    // Temporarily disable workflow navigation to prevent errors
+    setShowWorkflowNav(false);
+  }, [isWorkflowPath]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -83,7 +135,8 @@ const MainLayout: React.FC = () => {
     handleProfileMenuClose();
   };
 
-  const handleNavigation = (path: string) => {
+  const handleNavigation = (path: string, workflowStep?: string) => {
+    // Simplified navigation - temporarily disable workflow guards
     navigate(path);
     if (isMobile) {
       setMobileOpen(false);
@@ -125,47 +178,71 @@ const MainLayout: React.FC = () => {
         </Box>
       </Box>
 
+      {/* Workflow Navigation */}
+      {showWorkflowNav && (
+        <Box sx={{ px: 2, py: 1 }}>
+          <React.Suspense fallback={<div>Loading workflow...</div>}>
+            <WorkflowNavigation compact={true} showProgress={true} />
+          </React.Suspense>
+        </Box>
+      )}
+
       {/* Navigation */}
       <List sx={{ flex: 1, px: 2, py: 1 }}>
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
+          const isDisabled = false; // Temporarily disable workflow restrictions
           
           return (
             <ListItem key={item.path} disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                onClick={() => handleNavigation(item.path)}
-                sx={{
-                  borderRadius: 2,
-                  py: 1.5,
-                  px: 2,
-                  backgroundColor: isActive ? 'rgba(0, 255, 136, 0.1)' : 'transparent',
-                  border: isActive ? '1px solid rgba(0, 255, 136, 0.3)' : '1px solid transparent',
-                  '&:hover': {
-                    backgroundColor: 'rgba(0, 255, 136, 0.05)',
-                    border: '1px solid rgba(0, 255, 136, 0.2)'
-                  }
-                }}
+              <Tooltip
+                title={
+                  isDisabled 
+                    ? 'Complete previous workflow steps to unlock'
+                    : item.label
+                }
+                placement="right"
               >
-                <ListItemIcon sx={{ minWidth: 40 }}>
-                  <Icon
-                    sx={{
-                      color: isActive ? 'primary.main' : 'text.secondary',
-                      fontSize: 22
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.label}
+                <ListItemButton
+                  onClick={() => handleNavigation(item.path, item.workflowStep)}
+                  disabled={isDisabled}
                   sx={{
-                    '& .MuiListItemText-primary': {
-                      fontSize: '0.9rem',
-                      fontWeight: isActive ? 600 : 400,
-                      color: isActive ? 'primary.main' : 'text.primary'
+                    borderRadius: 2,
+                    py: 1.5,
+                    px: 2,
+                    backgroundColor: isActive ? 'rgba(0, 255, 136, 0.1)' : 'transparent',
+                    border: isActive ? '1px solid rgba(0, 255, 136, 0.3)' : '1px solid transparent',
+                    opacity: isDisabled ? 0.5 : 1,
+                    '&:hover': {
+                      backgroundColor: isDisabled ? 'transparent' : 'rgba(0, 255, 136, 0.05)',
+                      border: isDisabled ? '1px solid transparent' : '1px solid rgba(0, 255, 136, 0.2)'
+                    },
+                    '&.Mui-disabled': {
+                      opacity: 0.5
                     }
                   }}
-                />
-              </ListItemButton>
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <Icon
+                      sx={{
+                        color: isActive ? 'primary.main' : isDisabled ? 'text.disabled' : 'text.secondary',
+                        fontSize: 22
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.label}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        fontSize: '0.9rem',
+                        fontWeight: isActive ? 600 : 400,
+                        color: isActive ? 'primary.main' : isDisabled ? 'text.disabled' : 'text.primary'
+                      }
+                    }}
+                  />
+                </ListItemButton>
+              </Tooltip>
             </ListItem>
           );
         })}

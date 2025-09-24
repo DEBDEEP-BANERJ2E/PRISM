@@ -1,0 +1,252 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concurrent Test Report 3</title>
+    <style>
+        
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
+        .report-container { max-width: 1200px; margin: 0 auto; }
+        .report-header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+        .report-header h1 { color: #2c3e50; margin-bottom: 10px; }
+        .report-meta { display: flex; justify-content: center; gap: 30px; }
+        .report-meta p { margin: 5px 0; color: #666; }
+        
+        section { margin-bottom: 40px; }
+        h2 { color: #2c3e50; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+        h3 { color: #34495e; }
+        
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .summary-card { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #3498db; }
+        .summary-card h3 { margin-top: 0; color: #2c3e50; }
+        .metric { font-size: 1.2em; font-weight: bold; color: #27ae60; }
+        
+        .stats-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .stats-table th, .stats-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        .stats-table th { background-color: #f2f2f2; font-weight: bold; }
+        
+        .performance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .model-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; }
+        .model-card h3 { margin-top: 0; color: #2c3e50; }
+        .metrics .metric { display: flex; justify-content: space-between; margin: 10px 0; }
+        .metrics .label { color: #666; }
+        .metrics .value { font-weight: bold; color: #2c3e50; }
+        
+        .feature-bars { margin-top: 20px; }
+        .feature-bar { display: flex; align-items: center; margin: 10px 0; }
+        .feature-name { width: 200px; font-size: 0.9em; }
+        .bar-container { flex: 1; display: flex; align-items: center; margin-left: 10px; }
+        .bar { height: 20px; background: linear-gradient(90deg, #3498db, #2980b9); border-radius: 10px; }
+        .importance-value { margin-left: 10px; font-size: 0.8em; color: #666; }
+        
+        .recommendations-list { margin-top: 20px; }
+        .recommendation { background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 8px; position: relative; }
+        .recommendation h3 { margin-top: 0; color: #2c3e50; }
+        .priority { position: absolute; top: 15px; right: 15px; padding: 5px 10px; border-radius: 15px; font-size: 0.8em; font-weight: bold; }
+        .priority-high { background: #e74c3c; color: white; }
+        .priority-medium { background: #f39c12; color: white; }
+        .priority-low { background: #27ae60; color: white; }
+        
+        .technical-details pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 0.9em; }
+        
+        .report-footer { text-align: center; border-top: 1px solid #ddd; padding-top: 20px; margin-top: 40px; color: #666; }
+        
+        @media print {
+            body { margin: 0; }
+            .report-container { max-width: none; }
+            section { page-break-inside: avoid; }
+        }
+    
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        
+<header class="report-header">
+    <h1>Concurrent Test Report 3</h1>
+    <div class="report-meta">
+        <p><strong>Generated:</strong> 9/21/2025</p>
+        <p><strong>Author:</strong> Test Suite</p>
+        <p><strong>Version:</strong> 1.0</p>
+    </div>
+</header>
+        
+<section class="executive-summary">
+    <h2>Executive Summary</h2>
+    <div class="summary-grid">
+        <div class="summary-card">
+            <h3>Best Model</h3>
+            <p>random_forest</p>
+            <p class="metric">Accuracy: 92.0%</p>
+        </div>
+        <div class="summary-card">
+            <h3>Dataset Size</h3>
+            <p>5000 samples</p>
+            <p>15 features</p>
+        </div>
+        <div class="summary-card">
+            <h3>Key Insights</h3>
+            <ul>
+                <li>Model accuracy: 92.0%</li><li>Most important feature: slope_angle (35.0% importance)</li><li>Data quality score: 94.0%</li>
+            </ul>
+        </div>
+    </div>
+</section>
+        
+<section class="data-overview">
+    <h2>Data Overview</h2>
+    <div class="data-stats">
+        <table class="stats-table">
+            <tr><th>Metric</th><th>Value</th></tr>
+            <tr><td>Total Samples</td><td>5000</td></tr>
+            <tr><td>Features</td><td>15</td></tr>
+            <tr><td>Missing Values</td><td>12</td></tr>
+            <tr><td>Data Quality Score</td><td>94.0%</td></tr>
+        </table>
+    </div>
+    
+    <div class="chart-placeholder">
+      <p><em>Data distribution charts would be rendered here</em></p>
+    </div>
+</section>
+        
+<section class="model-performance">
+    <h2>Model Performance Analysis</h2>
+    <div class="performance-grid">
+        
+            <div class="model-card">
+                <h3>random_forest</h3>
+                <div class="metrics">
+                    <div class="metric">
+                        <span class="label">Accuracy:</span>
+                        <span class="value">92.00%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Precision:</span>
+                        <span class="value">89.00%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Recall:</span>
+                        <span class="value">94.00%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">F1 Score:</span>
+                        <span class="value">91.00%</span>
+                    </div>
+                </div>
+            </div>
+        
+    </div>
+</section>
+        
+<section class="feature-analysis">
+    <h2>Feature Importance Analysis</h2>
+    <div class="feature-importance">
+        <h3>Top 10 Most Important Features</h3>
+        <div class="feature-bars">
+            
+                <div class="feature-bar">
+                    <span class="feature-name">slope_angle</span>
+                    <div class="bar-container">
+                        <div class="bar" style="width: 35%"></div>
+                        <span class="importance-value">35.0%</span>
+                    </div>
+                </div>
+            
+                <div class="feature-bar">
+                    <span class="feature-name">rock_type</span>
+                    <div class="bar-container">
+                        <div class="bar" style="width: 28.000000000000004%"></div>
+                        <span class="importance-value">28.0%</span>
+                    </div>
+                </div>
+            
+                <div class="feature-bar">
+                    <span class="feature-name">weather_condition</span>
+                    <div class="bar-container">
+                        <div class="bar" style="width: 22%"></div>
+                        <span class="importance-value">22.0%</span>
+                    </div>
+                </div>
+            
+                <div class="feature-bar">
+                    <span class="feature-name">vibration_level</span>
+                    <div class="bar-container">
+                        <div class="bar" style="width: 15%"></div>
+                        <span class="importance-value">15.0%</span>
+                    </div>
+                </div>
+            
+        </div>
+    </div>
+</section>
+        
+<section class="recommendations">
+    <h2>Recommendations</h2>
+    <div class="recommendations-list">
+        
+            <div class="recommendation">
+                <h3>1. Monitor Model Performance</h3>
+                <p>Set up regular monitoring to track model performance over time and detect potential drift.</p>
+                <div class="priority priority-medium">MEDIUM</div>
+            </div>
+        
+    </div>
+</section>
+        
+<section class="appendix">
+    <h2>Appendix</h2>
+    <h3>Technical Details</h3>
+    <div class="technical-details">
+        <h4>Model Configuration</h4>
+        <pre>{
+  "format": "html",
+  "includeCharts": true,
+  "includeRawData": false,
+  "sections": [
+    {
+      "id": "summary",
+      "name": "Executive Summary",
+      "enabled": true,
+      "order": 1
+    },
+    {
+      "id": "model_performance",
+      "name": "Model Performance",
+      "enabled": true,
+      "order": 2
+    },
+    {
+      "id": "features",
+      "name": "Feature Analysis",
+      "enabled": true,
+      "order": 3
+    }
+  ]
+}</pre>
+        
+        <h4>Performance Metrics</h4>
+        <pre>[
+  {
+    "modelId": "integration-test-model",
+    "modelType": "random_forest",
+    "accuracy": 0.92,
+    "precision": 0.89,
+    "recall": 0.94,
+    "f1Score": 0.91,
+    "auc": 0.95
+  }
+]</pre>
+    </div>
+</section>
+        
+<footer class="report-footer">
+    <p>Generated by PRISM Data Science Platform</p>
+    <p>Report ID: N/A</p>
+    <p>© 2025 PRISM Technologies</p>
+</footer>
+    </div>
+</body>
+</html>

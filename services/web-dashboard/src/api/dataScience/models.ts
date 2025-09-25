@@ -1,12 +1,12 @@
 import axios from 'axios';
 import { APIResponse, ModelConfiguration, TrainingResults, ValidationResult } from '../../types/dataScience';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Create axios instance for data science backend
 const apiClient = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
-  timeout: 300000, // 5 minutes for long operations
+  baseURL: API_BASE_URL,
+  timeout: 300000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -28,21 +28,24 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => {
     console.log(`✅ API Response: ${response.status} ${response.config.url}`);
-    return response;
+    console.log(`📦 Response Data:`, response.data);
+    console.log(`📏 Response Data Type:`, typeof response.data);
+    return response.data;
   },
   (error) => {
     console.error('❌ API Response Error:', {
       status: error.response?.status,
       data: error.response?.data,
-      url: error.config?.url
+      url: error.config?.url,
+      message: error.message
     });
-    
+
     // Transform error for consistent handling
-    const message = error.response?.data?.error?.message || 
-                   error.response?.data?.message || 
-                   error.message || 
+    const message = error.response?.data?.error?.message ||
+                   error.response?.data?.message ||
+                   error.message ||
                    'An unexpected error occurred';
-    
+
     throw new Error(message);
   }
 );
@@ -50,37 +53,30 @@ apiClient.interceptors.response.use(
 // Export the dataScienceAPI for use in components
 export const dataScienceAPI = {
   getModelTypes: async () => {
-    const response = await apiClient.get('/data-science/model-types');
-    return response.data;
+    return await apiClient.get('/api/data-science/model-types');
   },
-  
+
   validateConfiguration: async (configuration: ModelConfiguration) => {
-    const response = await apiClient.post('/data-science/validate-configuration', { configuration });
-    return response.data;
+    return await apiClient.post('/api/data-science/validate-configuration', { configuration });
   },
-  
+
   trainModel: async (datasetId: string, configuration: ModelConfiguration) => {
-    const response = await apiClient.post('/data-science/train', { datasetId, configuration });
-    return response.data;
+    return await apiClient.post('/models/train', { datasetId, configuration });
   },
-  
+
   getTrainingStatus: async (jobId: string) => {
-    const response = await apiClient.get(`/data-science/training/${jobId}/status`);
-    return response.data;
+    return await apiClient.get(`/models/train/${jobId}/progress`);
   },
-  
+
   getTrainingProgress: async (jobId: string) => {
-    const response = await apiClient.get(`/data-science/training/${jobId}/progress`);
-    return response.data;
+    return await apiClient.get(`/models/train/${jobId}/progress`);
   },
-  
+
   getTrainingResults: async (jobId: string) => {
-    const response = await apiClient.get(`/data-science/training/${jobId}/results`);
-    return response.data;
+    return await apiClient.get(`/models/train/${jobId}/results`);
   },
-  
+
   getModels: async () => {
-    const response = await apiClient.get('/data-science/models');
-    return response.data;
+    return await apiClient.get('/models');
   }
 };

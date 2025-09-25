@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Box,
@@ -30,7 +30,8 @@ import {
   FormControlLabel,
   Avatar,
   LinearProgress,
-  Alert
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import {
   Sensors,
@@ -50,14 +51,31 @@ import {
   Error,
   Info,
   Timeline,
-  LocationOn
+  LocationOn,
+  Thermostat,
+  Opacity,
+  Speed,
+  GpsFixed,
+  Vibration
 } from '@mui/icons-material';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
+
+interface SensorData {
+  temp: number;
+  hum: number;
+  pres: number;
+  acc: [number, number, number];
+  gyro: [number, number, number];
+  ang: [number, number, number];
+  lat: number;
+  lon: number;
+  spd: number;
+}
 
 interface Sensor {
   id: string;
   name: string;
-  type: 'displacement' | 'tilt' | 'strain' | 'piezometer' | 'accelerometer' | 'temperature';
+  type: 'temperature' | 'humidity' | 'pressure' | 'accelerometer' | 'gyroscope' | 'angle' | 'gps' | 'speed';
   status: 'active' | 'warning' | 'error' | 'offline';
   location: string;
   coordinates: { lat: number; lng: number };
@@ -68,6 +86,24 @@ interface Sensor {
   unit: string;
   calibrationDate: string;
   maintenanceDate: string;
+  rawData?: SensorData;
+}
+
+interface ChartDataPoint {
+  time: string;
+  temperature?: number;
+  humidity?: number;
+  pressure?: number;
+  accX?: number;
+  accY?: number;
+  accZ?: number;
+  gyroX?: number;
+  gyroY?: number;
+  gyroZ?: number;
+  angleX?: number;
+  angleY?: number;
+  angleZ?: number;
+  speed?: number;
 }
 
 const SensorManagementPage: React.FC = () => {
@@ -76,94 +112,240 @@ const SensorManagementPage: React.FC = () => {
   const [editMode, setEditMode] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [sensors, setSensors] = useState<Sensor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  // Mock sensor data
-  const sensors: Sensor[] = [
-    {
-      id: 'S001',
-      name: 'Displacement Sensor Alpha',
-      type: 'displacement',
-      status: 'active',
-      location: 'Sector A - Bench 1',
-      coordinates: { lat: -23.5505, lng: -46.6333 },
-      batteryLevel: 85,
-      signalStrength: 92,
-      lastReading: '2 minutes ago',
-      value: 2.3,
-      unit: 'mm',
-      calibrationDate: '2024-01-15',
-      maintenanceDate: '2024-03-01'
-    },
-    {
-      id: 'S002',
-      name: 'Tilt Sensor Beta',
-      type: 'tilt',
-      status: 'warning',
-      location: 'Sector B - Bench 3',
-      coordinates: { lat: -23.5515, lng: -46.6343 },
-      batteryLevel: 45,
-      signalStrength: 78,
-      lastReading: '5 minutes ago',
-      value: 1.2,
-      unit: 'degrees',
-      calibrationDate: '2024-01-10',
-      maintenanceDate: '2024-02-28'
-    },
-    {
-      id: 'S003',
-      name: 'Strain Gauge Gamma',
-      type: 'strain',
-      status: 'active',
-      location: 'Sector C - Bench 2',
-      coordinates: { lat: -23.5525, lng: -46.6353 },
-      batteryLevel: 92,
-      signalStrength: 88,
-      lastReading: '1 minute ago',
-      value: 156.7,
-      unit: 'με',
-      calibrationDate: '2024-01-20',
-      maintenanceDate: '2024-03-05'
-    },
-    {
-      id: 'S004',
-      name: 'Piezometer Delta',
-      type: 'piezometer',
-      status: 'error',
-      location: 'Sector A - Bench 4',
-      coordinates: { lat: -23.5535, lng: -46.6363 },
-      batteryLevel: 12,
-      signalStrength: 0,
-      lastReading: '2 hours ago',
-      value: 0,
-      unit: 'kPa',
-      calibrationDate: '2024-01-05',
-      maintenanceDate: '2024-02-25'
-    }
-  ];
+  // Fetch sensor data from the API with fallback to mock data
+  const fetchSensorData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  // Mock time series data
-  const generateTimeSeriesData = () => {
-    const data = [];
-    for (let i = 0; i < 24; i++) {
-      data.push({
-        time: `${i}:00`,
-        value: Math.random() * 10 + Math.sin(i * 0.5) * 5,
-        threshold: 8
-      });
+      let rawData: SensorData;
+
+      try {
+        const response = await fetch('https://7f21bedfb63c.ngrok-free.app/');
+        if (!response.ok) {
+          throw Error(`HTTP error! status: ${response.status}`);
+        }
+        rawData = await response.json();
+      } catch (fetchError) {
+        // Fallback to mock data when API is not available
+        console.warn('API not available, using mock data:', fetchError);
+        rawData = {
+          temp: 32.40 + (Math.random() - 0.5) * 5,
+          hum: 53.80 + (Math.random() - 0.5) * 10,
+          pres: 992.80 + (Math.random() - 0.5) * 20,
+          acc: [
+            -0.03 + (Math.random() - 0.5) * 0.1,
+            -0.01 + (Math.random() - 0.5) * 0.1,
+            1.01 + (Math.random() - 0.5) * 0.2
+          ],
+          gyro: [
+            -0.19 + (Math.random() - 0.5) * 2,
+            -1.01 + (Math.random() - 0.5) * 2,
+            -0.06 + (Math.random() - 0.5) * 2
+          ],
+          ang: [
+            -15.25 + (Math.random() - 0.5) * 30,
+            -80.61 + (Math.random() - 0.5) * 30,
+            -27.03 + (Math.random() - 0.5) * 30
+          ],
+          lat: 22.572599 + (Math.random() - 0.5) * 0.001,
+          lon: 88.363899 + (Math.random() - 0.5) * 0.001,
+          spd: Math.random() * 10
+        };
+      }
+
+      // Transform raw sensor data into sensor objects
+      const sensorList: Sensor[] = [
+        {
+          id: 'TEMP001',
+          name: 'Temperature Sensor',
+          type: 'temperature',
+          status: rawData.temp > 35 ? 'warning' : 'active',
+          location: `Lat: ${rawData.lat.toFixed(4)}, Lon: ${rawData.lon.toFixed(4)}`,
+          coordinates: { lat: rawData.lat, lng: rawData.lon },
+          batteryLevel: Math.floor(Math.random() * 40) + 60, // Random battery level
+          signalStrength: Math.floor(Math.random() * 30) + 70, // Random signal strength
+          lastReading: 'Just now',
+          value: rawData.temp,
+          unit: '°C',
+          calibrationDate: '2024-01-15',
+          maintenanceDate: '2024-03-01',
+          rawData: rawData
+        },
+        {
+          id: 'HUM001',
+          name: 'Humidity Sensor',
+          type: 'humidity',
+          status: rawData.hum > 80 ? 'warning' : 'active',
+          location: `Lat: ${rawData.lat.toFixed(4)}, Lon: ${rawData.lon.toFixed(4)}`,
+          coordinates: { lat: rawData.lat, lng: rawData.lon },
+          batteryLevel: Math.floor(Math.random() * 40) + 60,
+          signalStrength: Math.floor(Math.random() * 30) + 70,
+          lastReading: 'Just now',
+          value: rawData.hum,
+          unit: '%',
+          calibrationDate: '2024-01-10',
+          maintenanceDate: '2024-02-28',
+          rawData: rawData
+        },
+        {
+          id: 'PRES001',
+          name: 'Pressure Sensor',
+          type: 'pressure',
+          status: rawData.pres < 980 || rawData.pres > 1020 ? 'warning' : 'active',
+          location: `Lat: ${rawData.lat.toFixed(4)}, Lon: ${rawData.lon.toFixed(4)}`,
+          coordinates: { lat: rawData.lat, lng: rawData.lon },
+          batteryLevel: Math.floor(Math.random() * 40) + 60,
+          signalStrength: Math.floor(Math.random() * 30) + 70,
+          lastReading: 'Just now',
+          value: rawData.pres,
+          unit: 'hPa',
+          calibrationDate: '2024-01-20',
+          maintenanceDate: '2024-03-05',
+          rawData: rawData
+        },
+        {
+          id: 'ACC001',
+          name: 'Accelerometer',
+          type: 'accelerometer',
+          status: Math.abs(rawData.acc[0]) > 2 || Math.abs(rawData.acc[1]) > 2 || Math.abs(rawData.acc[2] - 9.8) > 1 ? 'warning' : 'active',
+          location: `Lat: ${rawData.lat.toFixed(4)}, Lon: ${rawData.lon.toFixed(4)}`,
+          coordinates: { lat: rawData.lat, lng: rawData.lon },
+          batteryLevel: Math.floor(Math.random() * 40) + 60,
+          signalStrength: Math.floor(Math.random() * 30) + 70,
+          lastReading: 'Just now',
+          value: Math.sqrt(rawData.acc[0] ** 2 + rawData.acc[1] ** 2 + rawData.acc[2] ** 2),
+          unit: 'm/s²',
+          calibrationDate: '2024-01-05',
+          maintenanceDate: '2024-02-25',
+          rawData: rawData
+        },
+        {
+          id: 'GYRO001',
+          name: 'Gyroscope',
+          type: 'gyroscope',
+          status: Math.abs(rawData.gyro[0]) > 10 || Math.abs(rawData.gyro[1]) > 10 || Math.abs(rawData.gyro[2]) > 10 ? 'warning' : 'active',
+          location: `Lat: ${rawData.lat.toFixed(4)}, Lon: ${rawData.lon.toFixed(4)}`,
+          coordinates: { lat: rawData.lat, lng: rawData.lon },
+          batteryLevel: Math.floor(Math.random() * 40) + 60,
+          signalStrength: Math.floor(Math.random() * 30) + 70,
+          lastReading: 'Just now',
+          value: Math.sqrt(rawData.gyro[0] ** 2 + rawData.gyro[1] ** 2 + rawData.gyro[2] ** 2),
+          unit: '°/s',
+          calibrationDate: '2024-01-12',
+          maintenanceDate: '2024-03-10',
+          rawData: rawData
+        },
+        {
+          id: 'ANG001',
+          name: 'Angle Sensor',
+          type: 'angle',
+          status: Math.abs(rawData.ang[0]) > 45 || Math.abs(rawData.ang[1]) > 45 || Math.abs(rawData.ang[2]) > 45 ? 'warning' : 'active',
+          location: `Lat: ${rawData.lat.toFixed(4)}, Lon: ${rawData.lon.toFixed(4)}`,
+          coordinates: { lat: rawData.lat, lng: rawData.lon },
+          batteryLevel: Math.floor(Math.random() * 40) + 60,
+          signalStrength: Math.floor(Math.random() * 30) + 70,
+          lastReading: 'Just now',
+          value: Math.sqrt(rawData.ang[0] ** 2 + rawData.ang[1] ** 2 + rawData.ang[2] ** 2),
+          unit: '°',
+          calibrationDate: '2024-01-18',
+          maintenanceDate: '2024-03-15',
+          rawData: rawData
+        },
+        {
+          id: 'GPS001',
+          name: 'GPS Module',
+          type: 'gps',
+          status: 'active',
+          location: `Lat: ${rawData.lat.toFixed(4)}, Lon: ${rawData.lon.toFixed(4)}`,
+          coordinates: { lat: rawData.lat, lng: rawData.lon },
+          batteryLevel: Math.floor(Math.random() * 40) + 60,
+          signalStrength: Math.floor(Math.random() * 30) + 70,
+          lastReading: 'Just now',
+          value: rawData.spd,
+          unit: 'km/h',
+          calibrationDate: '2024-01-25',
+          maintenanceDate: '2024-04-01',
+          rawData: rawData
+        },
+        {
+          id: 'SPD001',
+          name: 'Speed Sensor',
+          type: 'speed',
+          status: rawData.spd > 50 ? 'warning' : 'active',
+          location: `Lat: ${rawData.lat.toFixed(4)}, Lon: ${rawData.lon.toFixed(4)}`,
+          coordinates: { lat: rawData.lat, lng: rawData.lon },
+          batteryLevel: Math.floor(Math.random() * 40) + 60,
+          signalStrength: Math.floor(Math.random() * 30) + 70,
+          lastReading: 'Just now',
+          value: rawData.spd,
+          unit: 'km/h',
+          calibrationDate: '2024-01-30',
+          maintenanceDate: '2024-04-05',
+          rawData: rawData
+        }
+      ];
+
+      setSensors(sensorList);
+      setLastUpdate(new Date());
+
+      // Update chart data
+      const chartPoint: ChartDataPoint = {
+        time: new Date().toLocaleTimeString(),
+        temperature: rawData.temp,
+        humidity: rawData.hum,
+        pressure: rawData.pres,
+        accX: rawData.acc[0],
+        accY: rawData.acc[1],
+        accZ: rawData.acc[2],
+        gyroX: rawData.gyro[0],
+        gyroY: rawData.gyro[1],
+        gyroZ: rawData.gyro[2],
+        angleX: rawData.ang[0],
+        angleY: rawData.ang[1],
+        angleZ: rawData.ang[2],
+        speed: rawData.spd
+      };
+
+      setChartData(prev => [...prev.slice(-19), chartPoint]); // Keep last 20 points
+
+    } catch (err) {
+      const errorMessage = err && typeof err === 'object' && 'message' in err ? String(err.message) : 'Failed to fetch sensor data';
+      setError(errorMessage);
+      console.error('Error fetching sensor data:', err);
+    } finally {
+      setLoading(false);
     }
-    return data;
   };
 
-  const timeSeriesData = generateTimeSeriesData();
+  // Fetch data on component mount and set up polling
+  useEffect(() => {
+    fetchSensorData();
+    const interval = setInterval(fetchSensorData, 5000); // Update every 5 seconds
+    return () => clearInterval(interval);
+  }, []); // Empty dependency array to prevent re-renders
+
+  // Memoize the fetch function to prevent unnecessary re-renders
+  const memoizedFetchSensorData = useCallback(() => {
+    fetchSensorData();
+  }, []);
 
   const getSensorIcon = (type: string) => {
     switch (type) {
-      case 'displacement': return <LocationOn />;
-      case 'tilt': return <Timeline />;
-      case 'strain': return <Sensors />;
-      case 'piezometer': return <Info />;
-      case 'accelerometer': return <Timeline />;
-      case 'temperature': return <Sensors />;
+      case 'temperature': return <Thermostat />;
+      case 'humidity': return <Opacity />;
+      case 'pressure': return <Speed />;
+      case 'accelerometer': return <Vibration />;
+      case 'gyroscope': return <Timeline />;
+      case 'angle': return <Timeline />;
+      case 'gps': return <GpsFixed />;
+      case 'speed': return <Speed />;
       default: return <Sensors />;
     }
   };
@@ -225,6 +407,40 @@ const SensorManagementPage: React.FC = () => {
     offline: sensors.filter(s => s.status === 'offline').length
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <Box sx={{ p: 3, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Box textAlign="center">
+          <CircularProgress size={60} />
+          <Typography variant="h6" sx={{ mt: 2 }}>
+            Loading sensor data...
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <Box sx={{ p: 3, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Alert severity="error" sx={{ maxWidth: 500 }}>
+          <Typography variant="h6">Error Loading Sensor Data</Typography>
+          <Typography variant="body2">{error}</Typography>
+          <Button
+            variant="contained"
+            sx={{ mt: 2 }}
+            onClick={fetchSensorData}
+            startIcon={<Refresh />}
+          >
+            Retry
+          </Button>
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ p: 3, height: '100%', overflow: 'auto' }}>
       {/* Header */}
@@ -241,13 +457,18 @@ const SensorManagementPage: React.FC = () => {
             <Typography variant="subtitle1" color="text.secondary">
               Monitor and manage all sensor nodes across the mine site
             </Typography>
+            {lastUpdate && (
+              <Typography variant="caption" color="text.secondary">
+                Last updated: {lastUpdate.toLocaleTimeString()}
+              </Typography>
+            )}
           </Box>
-          
+
           <Box display="flex" gap={2}>
             <Button
               variant="outlined"
               startIcon={<Refresh />}
-              onClick={() => window.location.reload()}
+              onClick={memoizedFetchSensorData}
             >
               Refresh
             </Button>
@@ -379,151 +600,247 @@ const SensorManagementPage: React.FC = () => {
           </motion.div>
         </Grid>
 
-        {/* Filters and Sensor Table */}
+        {/* Real-time Sensor Charts */}
         <Grid item xs={12}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <Card sx={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-              <CardContent>
-                {/* Filters */}
-                <Box display="flex" gap={2} mb={3}>
-                  <FormControl size="small" sx={{ minWidth: 120 }}>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      label="Status"
-                    >
-                      <MenuItem value="all">All Status</MenuItem>
-                      <MenuItem value="active">Active</MenuItem>
-                      <MenuItem value="warning">Warning</MenuItem>
-                      <MenuItem value="error">Error</MenuItem>
-                      <MenuItem value="offline">Offline</MenuItem>
-                    </Select>
-                  </FormControl>
-                  
-                  <FormControl size="small" sx={{ minWidth: 120 }}>
-                    <InputLabel>Type</InputLabel>
-                    <Select
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
-                      label="Type"
-                    >
-                      <MenuItem value="all">All Types</MenuItem>
-                      <MenuItem value="displacement">Displacement</MenuItem>
-                      <MenuItem value="tilt">Tilt</MenuItem>
-                      <MenuItem value="strain">Strain</MenuItem>
-                      <MenuItem value="piezometer">Piezometer</MenuItem>
-                      <MenuItem value="accelerometer">Accelerometer</MenuItem>
-                      <MenuItem value="temperature">Temperature</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Box>
+            <Grid container spacing={3}>
+              {/* Temperature & Humidity Chart */}
+              <Grid item xs={12} md={6}>
+                <Card sx={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Temperature & Humidity
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="time"
+                          label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                        />
+                        <YAxis
+                          label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
+                        />
+                        <RechartsTooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="temperature"
+                          stroke="#ff6b35"
+                          strokeWidth={2}
+                          name="Temperature (°C)"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="humidity"
+                          stroke="#00a8ff"
+                          strokeWidth={2}
+                          name="Humidity (%)"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </Grid>
 
-                {/* Sensor Table */}
-                <TableContainer component={Paper} sx={{ backgroundColor: 'transparent' }}>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Sensor</TableCell>
-                        <TableCell>Type</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Location</TableCell>
-                        <TableCell>Battery</TableCell>
-                        <TableCell>Signal</TableCell>
-                        <TableCell>Last Reading</TableCell>
-                        <TableCell>Value</TableCell>
-                        <TableCell>Actions</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {filteredSensors.map((sensor) => (
-                        <TableRow
-                          key={sensor.id}
-                          hover
-                          sx={{ cursor: 'pointer' }}
-                          onClick={() => handleSensorClick(sensor)}
-                        >
-                          <TableCell>
-                            <Box display="flex" alignItems="center" gap={2}>
-                              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                                {getSensorIcon(sensor.type)}
-                              </Avatar>
-                              <Box>
-                                <Typography variant="subtitle2" fontWeight="bold">
-                                  {sensor.name}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {sensor.id}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={sensor.type}
-                              size="small"
-                              variant="outlined"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Box display="flex" alignItems="center" gap={1}>
-                              {getStatusIcon(sensor.status)}
-                              <Chip
-                                label={sensor.status}
-                                size="small"
-                                color={getStatusColor(sensor.status) as any}
-                                variant="outlined"
-                              />
-                            </Box>
-                          </TableCell>
-                          <TableCell>{sensor.location}</TableCell>
-                          <TableCell>
-                            <Box display="flex" alignItems="center" gap={1}>
-                              {getBatteryIcon(sensor.batteryLevel)}
-                              <Typography variant="body2">
-                                {sensor.batteryLevel}%
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell>
-                            <Box display="flex" alignItems="center" gap={1}>
-                              {getSignalIcon(sensor.signalStrength)}
-                              <Typography variant="body2">
-                                {sensor.signalStrength}%
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell>{sensor.lastReading}</TableCell>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight="bold">
-                              {sensor.value} {sensor.unit}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Box display="flex" gap={1}>
-                              <Tooltip title="Edit">
-                                <IconButton size="small" onClick={(e) => { e.stopPropagation(); setEditMode(true); handleSensorClick(sensor); }}>
-                                  <Edit />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Settings">
-                                <IconButton size="small" onClick={(e) => e.stopPropagation()}>
-                                  <Settings />
-                                </IconButton>
-                              </Tooltip>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </CardContent>
-            </Card>
+              {/* Pressure Chart */}
+              <Grid item xs={12} md={6}>
+                <Card sx={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Atmospheric Pressure
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <AreaChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="time"
+                          label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                        />
+                        <YAxis
+                          label={{ value: 'Pressure (hPa)', angle: -90, position: 'insideLeft' }}
+                        />
+                        <RechartsTooltip />
+                        <Area
+                          type="monotone"
+                          dataKey="pressure"
+                          stroke="#00ff88"
+                          fill="rgba(0, 255, 136, 0.1)"
+                          name="Pressure (hPa)"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Accelerometer Chart */}
+              <Grid item xs={12} md={6}>
+                <Card sx={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Accelerometer (m/s²)
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="time"
+                          label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                        />
+                        <YAxis
+                          label={{ value: 'Acceleration (m/s²)', angle: -90, position: 'insideLeft' }}
+                        />
+                        <RechartsTooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="accX"
+                          stroke="#ff1744"
+                          strokeWidth={2}
+                          name="X-Axis"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="accY"
+                          stroke="#00e676"
+                          strokeWidth={2}
+                          name="Y-Axis"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="accZ"
+                          stroke="#2196f3"
+                          strokeWidth={2}
+                          name="Z-Axis"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Gyroscope Chart */}
+              <Grid item xs={12} md={6}>
+                <Card sx={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Gyroscope (°/s)
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="time"
+                          label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                        />
+                        <YAxis
+                          label={{ value: 'Angular Velocity (°/s)', angle: -90, position: 'insideLeft' }}
+                        />
+                        <RechartsTooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="gyroX"
+                          stroke="#ff9800"
+                          strokeWidth={2}
+                          name="X-Axis"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="gyroY"
+                          stroke="#9c27b0"
+                          strokeWidth={2}
+                          name="Y-Axis"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="gyroZ"
+                          stroke="#607d8b"
+                          strokeWidth={2}
+                          name="Z-Axis"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Angle Chart */}
+              <Grid item xs={12} md={6}>
+                <Card sx={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Orientation Angles (°)
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="time"
+                          label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                        />
+                        <YAxis
+                          label={{ value: 'Angle (°)', angle: -90, position: 'insideLeft' }}
+                        />
+                        <RechartsTooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="angleX"
+                          stroke="#e91e63"
+                          strokeWidth={2}
+                          name="X-Axis"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="angleY"
+                          stroke="#3f51b5"
+                          strokeWidth={2}
+                          name="Y-Axis"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="angleZ"
+                          stroke="#ff5722"
+                          strokeWidth={2}
+                          name="Z-Axis"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Speed Chart */}
+              <Grid item xs={12} md={6}>
+                <Card sx={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Speed (km/h)
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="time"
+                          label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                        />
+                        <YAxis
+                          label={{ value: 'Speed (km/h)', angle: -90, position: 'insideLeft' }}
+                        />
+                        <RechartsTooltip />
+                        <Bar
+                          dataKey="speed"
+                          fill="#4caf50"
+                          name="Speed (km/h)"
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
           </motion.div>
         </Grid>
       </Grid>
@@ -591,22 +908,31 @@ const SensorManagementPage: React.FC = () => {
                     Recent Readings (24h)
                   </Typography>
                   <ResponsiveContainer width="100%" height={200}>
-                    <AreaChart data={timeSeriesData}>
+                    <AreaChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="time" />
                       <YAxis />
                       <RechartsTooltip />
                       <Area
                         type="monotone"
-                        dataKey="value"
+                        dataKey="temperature"
+                        stroke="#ff6b35"
+                        fill="rgba(255, 107, 53, 0.1)"
+                        name="Temperature (°C)"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="humidity"
+                        stroke="#00a8ff"
+                        fill="rgba(0, 168, 255, 0.1)"
+                        name="Humidity (%)"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="pressure"
                         stroke="#00ff88"
                         fill="rgba(0, 255, 136, 0.1)"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="threshold"
-                        stroke="#ff6b35"
-                        strokeDasharray="5 5"
+                        name="Pressure (hPa)"
                       />
                     </AreaChart>
                   </ResponsiveContainer>

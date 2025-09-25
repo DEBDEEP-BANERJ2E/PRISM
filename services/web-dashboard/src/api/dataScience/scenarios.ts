@@ -1,6 +1,6 @@
 import { APIResponse, Scenario, ScenarioResults } from '../../types/dataScience';
 
-const API_BASE_URL = import.meta.env.VITE_DATA_SCIENCE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_DATA_SCIENCE_API_URL || 'http://localhost:8000';
 
 import { Router } from 'express';
 

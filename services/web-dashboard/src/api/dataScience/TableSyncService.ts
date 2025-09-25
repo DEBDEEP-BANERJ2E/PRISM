@@ -4,7 +4,7 @@ import { APIResponse, TableData, ColumnDefinition, RowData, TableChange } from '
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const DATA_SCIENCE_BACKEND_URL = import.meta.env.VITE_DATA_SCIENCE_BACKEND_URL || 'http://localhost:3001';
+const DATA_SCIENCE_BACKEND_URL = import.meta.env.VITE_DATA_SCIENCE_BACKEND_URL || 'http://localhost:8000';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // Database table names

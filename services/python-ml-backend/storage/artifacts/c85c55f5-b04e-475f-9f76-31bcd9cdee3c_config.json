@@ -1,0 +1,1 @@
+{"modelType":"random_forest","hyperparameters":{},"trainingConfig":{"trainTestSplit":0.8,"validationStrategy":"holdout","crossValidationFolds":null,"labelColumn":null,"randomState":42},"optimizationConfig":{"useAutoOptimization":false,"optimizationMethod":null,"parameterRanges":null}}

@@ -5,94 +5,7 @@ import { Progress } from '../common/Progress';
 import { Badge } from '../common/Badge';
 import { Alert } from '../common/Alert';
 import { TrainingResults, TrainingMetrics } from '../../types/dataScience';
-const dataScienceAPI = {
-  getModelTypes: async () => {
-    console.log('Mock getModelTypes called');
-    return { data: [] };
-  },
-  validateConfiguration: async (config: any) => {
-    console.log('Mock validateConfiguration called with config:', config);
-    return { data: { isValid: true } };
-  },
-  trainModel: async (config: any) => {
-    console.log('Mock trainModel called with config:', config);
-    return { data: { jobId: 'mock-job-id' } };
-  },
-  getTrainingStatus: async (jobId: string) => {
-    console.log(`Mock getTrainingStatus called for jobId: ${jobId}`);
-    return { data: { status: 'completed', progress: 100, logs: [] } };
-  },
-  getTrainingProgress: async (jobId: string) => {
-    console.log(`Mock getTrainingProgress called for jobId: ${jobId}`);
-    return { data: { 
-      status: 'completed' as 'queued' | 'training' | 'validating' | 'completed' | 'failed', 
-      progress: 100, 
-      logs: [], 
-      currentMetrics: {
-        loss: 0.05,
-        accuracy: 0.95,
-        timestamp: new Date()
-      },
-      error: ''
-    } };
-  },
-  getTrainingResults: async (jobId: string) => {
-    console.log(`Mock getTrainingResults called for jobId: ${jobId}`);
-    return { data: { 
-      id: 'mock-result-id',
-      modelId: 'mock-model-id',
-      configuration: {
-        modelType: 'random_forest' as 'random_forest' | 'xgboost' | 'neural_network' | 'ensemble',
-        hyperparameters: {},
-        trainingConfig: {
-          trainTestSplit: 0.8,
-          validationStrategy: 'holdout' as 'holdout' | 'k_fold' | 'stratified'
-        },
-        optimizationConfig: {
-          useAutoOptimization: false
-        }
-      },
-      metrics: {
-        training: {
-          accuracy: 0.95,
-          precision: 0.92,
-          recall: 0.94,
-          f1Score: 0.93,
-          rocAuc: 0.96,
-          confusionMatrix: [[90, 10], [5, 95]],
-          classificationReport: {
-            'class1': { precision: 0.92, recall: 0.94, f1Score: 0.93 }
-          }
-        },
-        validation: {
-          folds: 5,
-          scores: [0.94, 0.95, 0.93, 0.96, 0.94],
-          meanScore: 0.944,
-          stdScore: 0.01,
-          metrics: []
-        },
-        test: {
-          accuracy: 0.93,
-          precision: 0.91,
-          recall: 0.92,
-          f1Score: 0.91,
-          rocAuc: 0.94,
-          confusionMatrix: [[88, 12], [8, 92]],
-          classificationReport: {
-            'class1': { precision: 0.91, recall: 0.92, f1Score: 0.91 }
-          }
-        }
-      },
-      trainingTime: 120,
-      artifacts: {
-        modelPath: '/models/mock-model-id.pkl',
-        configPath: '/configs/mock-model-id.json',
-        metricsPath: '/metrics/mock-model-id.json'
-      },
-      createdAt: new Date()
-    } };
-  },
-};
+import { dataScienceAPI } from '../../api/dataScience/models';
 
 interface TrainingProgressProps {
   jobId: string;
@@ -113,6 +26,8 @@ export const TrainingProgress: React.FC<TrainingProgressProps> = ({
   onComplete,
   onError
 }) => {
+  console.log('🎯 TrainingProgress component rendered with jobId:', jobId);
+
   const [status, setStatus] = useState<TrainingStatus>({
     status: 'queued',
     progress: 0,
@@ -129,21 +44,46 @@ export const TrainingProgress: React.FC<TrainingProgressProps> = ({
       // Poll for progress updates
       intervalRef.current = setInterval(async () => {
         try {
+          console.log('🔄 Polling for progress with jobId:', jobId);
           const response = await dataScienceAPI.getTrainingProgress(jobId);
-          const newStatus = response.data;
+          console.log('📊 Progress response:', response);
+          console.log('📏 Response type:', typeof response);
+
+          // Defensive check for response
+          if (!response) {
+            console.error('❌ Response is null/undefined');
+            return;
+          }
+
+          const newStatus = response.data || response;
+          console.log('📦 New status:', newStatus);
+
+          if (!newStatus) {
+            console.error('❌ New status is null/undefined');
+            return;
+          }
+
           setStatus(newStatus);
 
           if (newStatus.status === 'completed') {
+            console.log('✅ Training completed, fetching results...');
             setIsPolling(false);
             // Get final results
             const resultsResponse = await dataScienceAPI.getTrainingResults(jobId);
-            onComplete(resultsResponse.data);
+            console.log('🎉 Final results:', resultsResponse);
+            onComplete(resultsResponse.data || resultsResponse);
           } else if (newStatus.status === 'failed') {
+            console.log('❌ Training failed:', newStatus.error);
             setIsPolling(false);
             onError(newStatus.error || 'Training failed');
           }
         } catch (error: any) {
-          console.error('Failed to get training progress:', error);
+          console.error('❌ Failed to get training progress:', error);
+          console.error('❌ Error details:', {
+            message: error.message,
+            status: error.response?.status,
+            data: error.response?.data
+          });
           setIsPolling(false);
           onError(`Failed to get training progress: ${error.message}`);
         }
@@ -279,18 +219,22 @@ export const TrainingProgress: React.FC<TrainingProgressProps> = ({
                     <div className="text-xs text-green-600">Epoch</div>
                   </div>
                 )}
-                <div className="text-center">
-                  <div className="text-lg font-bold text-green-700">
-                    {status.currentMetrics.loss.toFixed(4)}
+                {status.currentMetrics.loss !== undefined && (
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-green-700">
+                      {status.currentMetrics.loss.toFixed(4)}
+                    </div>
+                    <div className="text-xs text-green-600">Loss</div>
                   </div>
-                  <div className="text-xs text-green-600">Loss</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-green-700">
-                    {(status.currentMetrics.accuracy * 100).toFixed(1)}%
+                )}
+                {status.currentMetrics.accuracy !== undefined && (
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-green-700">
+                      {(status.currentMetrics.accuracy * 100).toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-green-600">Accuracy</div>
                   </div>
-                  <div className="text-xs text-green-600">Accuracy</div>
-                </div>
+                )}
                 {status.currentMetrics.validationAccuracy !== undefined && (
                   <div className="text-center">
                     <div className="text-lg font-bold text-green-700">

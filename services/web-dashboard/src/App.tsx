@@ -21,6 +21,7 @@ const ScenarioPage = React.lazy(() => import('./pages/scenario/ScenarioPage'));
 const RiskAssessmentPage = React.lazy(() => import('./pages/risk/RiskAssessmentPage'));
 const SensorManagementPage = React.lazy(() => import('./pages/sensors/SensorManagementPage'));
 const AlertsPage = React.lazy(() => import('./pages/alerts/AlertsPage'));
+const NotificationsPage = React.lazy(() => import('./pages/notifications/NotificationsPage'));
 const DigitalTwinPage = React.lazy(() => import('./pages/digital-twin/DigitalTwinPage'));
 const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'));
 const ProfilePage = React.lazy(() => import('./pages/profile/ProfilePage'));
@@ -191,6 +192,7 @@ const App: React.FC = () => {
                     <Route path="risk" element={<RiskAssessmentPage />} />
                     <Route path="sensors" element={<SensorManagementPage />} />
                     <Route path="alerts" element={<AlertsPage />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="digital-twin" element={<DigitalTwinPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="profile" element={<ProfilePage />} />

@@ -46,6 +46,7 @@ import {
 import { mockData, modelTypes } from './modelConfigData';
 import { generatePythonScript } from '../../utils/pythonScriptGenerator';
 import { RealMLArchitecture } from '../../components/data-science/RealMLArchitecture';
+import { TrainingProgress } from '../../components/data-science/TrainingProgress';
 import './ModelConfigurationPage.css';
 
 interface ModelConfigurationPageProps {
@@ -126,6 +127,7 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
   const [isExecutingScript, setIsExecutingScript] = useState(false);
   const [executionProgress, setExecutionProgress] = useState(0);
   const [executionLogs, setExecutionLogs] = useState<string[]>([]);
+  const [trainingJobId, setTrainingJobId] = useState<string | null>(null);
 
   const selectedModel = modelTypes.find(m => m.id === selectedModelType);
 
@@ -145,18 +147,43 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
     setShowResults(false);
 
     try {
+      console.log('🚀 Starting training with dataset:', currentData.id);
+      console.log('📊 Configuration:', configuration);
+
       // Call the real training API
       const response = await dataScienceAPI.trainModel(currentData.id, configuration);
+      console.log('✅ Training response:', response);
+      console.log('📏 Training response type:', typeof response);
+      console.log('🔍 Training response keys:', response ? Object.keys(response) : 'null/undefined');
 
-      setTrainingResults(response);
-      setShowResults(true);
+      if (response && response.trainingJobId) {
+        console.log('🎯 Setting trainingJobId:', response.trainingJobId);
+        setTrainingJobId(response.trainingJobId);
+      } else {
+        console.error('❌ No trainingJobId in response:', response);
+        console.error('❌ Response is:', response);
+        console.error('❌ Response type:', typeof response);
+        setError('Training failed: No job ID returned from server');
+        setIsLoading(false);
+      }
     } catch (error) {
+      console.error('❌ Training error:', error);
       setError(`Training failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
       setIsLoading(false);
-      setIsTraining(false);
-      setTrainingProgress(0);
     }
+  };
+
+  const handleTrainingComplete = (results: any) => {
+    setTrainingResults(results);
+    setShowResults(true);
+    setIsLoading(false);
+    setTrainingJobId(null);
+  };
+
+  const handleTrainingError = (error: string) => {
+    setError(error);
+    setIsLoading(false);
+    setTrainingJobId(null);
   };
 
 
@@ -818,6 +845,21 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
           </motion.div>
         </div>
 
+        {/* Training Progress Section */}
+        {trainingJobId && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="model-config-main-animated"
+          >
+            <TrainingProgress
+              jobId={trainingJobId}
+              onComplete={handleTrainingComplete}
+              onError={handleTrainingError}
+            />
+          </motion.div>
+        )}
+
         {/* Training Results Section */}
         {showResults && trainingResults && (
           <motion.div
@@ -879,25 +921,25 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
                       <div className="model-config-results-metrics">
                         <div className="model-config-metric-card">
                           <div className="model-config-metric-value" style={{ color: 'var(--success-text)' }}>
-                            {(trainingResults.metrics.accuracy * 100).toFixed(1)}%
+                            {(trainingResults.metrics?.test?.accuracy * 100).toFixed(1)}%
                           </div>
                           <div className="model-config-metric-label">Accuracy</div>
                         </div>
                         <div className="model-config-metric-card">
                           <div className="model-config-metric-value" style={{ color: 'var(--accent-primary)' }}>
-                            {(trainingResults.metrics.precision * 100).toFixed(1)}%
+                            {(trainingResults.metrics?.test?.precision * 100).toFixed(1)}%
                           </div>
                           <div className="model-config-metric-label">Precision</div>
                         </div>
                         <div className="model-config-metric-card">
                           <div className="model-config-metric-value" style={{ color: 'var(--accent-secondary)' }}>
-                            {(trainingResults.metrics.recall * 100).toFixed(1)}%
+                            {(trainingResults.metrics?.test?.recall * 100).toFixed(1)}%
                           </div>
                           <div className="model-config-metric-label">Recall</div>
                         </div>
                         <div className="model-config-metric-card">
                           <div className="model-config-metric-value" style={{ color: '#f59e0b' }}>
-                            {(trainingResults.metrics.f1Score * 100).toFixed(1)}%
+                            {(trainingResults.metrics?.test?.f1Score * 100).toFixed(1)}%
                           </div>
                           <div className="model-config-metric-label">F1 Score</div>
                         </div>
@@ -907,13 +949,13 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
                         <div className="model-config-form-group">
                           <label className="model-config-form-label">Training Time</label>
                           <div className="model-config-form-input">
-                            {trainingResults.metrics.trainingTime} seconds
+                            {trainingResults.trainingTime} seconds
                           </div>
                         </div>
                         <div className="model-config-form-group">
                           <label className="model-config-form-label">Model Type</label>
                           <div className="model-config-form-input">
-                            {trainingResults.modelType}
+                            {trainingResults.configuration?.modelType}
                           </div>
                         </div>
                       </div>
@@ -928,16 +970,16 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
                           <div className="model-config-success p-4">
                             <div className="grid grid-cols-2 gap-4">
                               <div>
-                                <strong>Dataset Name:</strong> {trainingResults.datasetInfo.name}
+                                <strong>Dataset Name:</strong> {currentData.originalData.name}
                               </div>
                               <div>
-                                <strong>Total Samples:</strong> {trainingResults.datasetInfo.totalSamples.toLocaleString()}
+                                <strong>Total Samples:</strong> {currentData.metadata.rowCount.toLocaleString()}
                               </div>
                               <div>
-                                <strong>Features:</strong> {trainingResults.datasetInfo.totalFeatures}
+                                <strong>Features:</strong> {currentData.metadata.featureCount}
                               </div>
                               <div>
-                                <strong>Quality Score:</strong> {(trainingResults.datasetInfo.qualityScore * 100).toFixed(1)}%
+                                <strong>Quality Score:</strong> {(currentData.preprocessing.qualityScore * 100).toFixed(1)}%
                               </div>
                             </div>
                           </div>
@@ -950,13 +992,13 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
                               <div className="flex justify-between">
                                 <span>Training Set:</span>
                                 <span className="font-semibold">
-                                  {trainingResults.datasetInfo.trainingSamples.toLocaleString()} samples (80%)
+                                  {Math.round(currentData.metadata.rowCount * 0.8).toLocaleString()} samples (80%)
                                 </span>
                               </div>
                               <div className="flex justify-between">
                                 <span>Test Set:</span>
                                 <span className="font-semibold">
-                                  {trainingResults.datasetInfo.testSamples.toLocaleString()} samples (20%)
+                                  {Math.round(currentData.metadata.rowCount * 0.2).toLocaleString()} samples (20%)
                                 </span>
                               </div>
                               <div className="flex justify-between">
@@ -970,15 +1012,15 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
                         <div className="model-config-form-group">
                           <label className="model-config-form-label">Sample Training Data (First 5 rows)</label>
                           <div className="model-config-form-input" style={{ minHeight: '200px', fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                            <div className="mb-2 font-semibold">Feature columns: {trainingResults.datasetInfo.featureNames?.slice(0, 5).join(', ')}{trainingResults.datasetInfo.featureNames && trainingResults.datasetInfo.featureNames.length > 5 ? '...' : ''}</div>
+                            <div className="mb-2 font-semibold">Feature columns: {currentData.featureNames?.slice(0, 5).join(', ')}{currentData.featureNames && currentData.featureNames.length > 5 ? '...' : ''}</div>
                             <div className="space-y-1">
                               {Array.from({ length: 5 }, (_, i) => (
                                 <div key={i} className="flex">
                                   <span className="w-8 text-right mr-2">{i + 1}.</span>
                                   <span>
-                                    [{Array.from({ length: Math.min(5, trainingResults.datasetInfo.totalFeatures) }, (_, j) =>
+                                    [{Array.from({ length: Math.min(5, currentData.metadata.featureCount) }, (_, j) =>
                                       (Math.random() * 2 - 1).toFixed(3)
-                                    ).join(', ')}{trainingResults.datasetInfo.totalFeatures > 5 ? '...' : ''}] → Class {Math.floor(Math.random() * 2)}
+                                    ).join(', ')}{currentData.metadata.featureCount > 5 ? '...' : ''}] → Class {Math.floor(Math.random() * 2)}
                                   </span>
                                 </div>
                               ))}
@@ -994,9 +1036,9 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
                                 <div key={i} className="flex">
                                   <span className="w-8 text-right mr-2">{i + 1}.</span>
                                   <span>
-                                    [{Array.from({ length: Math.min(5, trainingResults.datasetInfo.totalFeatures) }, (_, j) =>
+                                    [{Array.from({ length: Math.min(5, currentData.metadata.featureCount) }, (_, j) =>
                                       (Math.random() * 2 - 1).toFixed(3)
-                                    ).join(', ')}{trainingResults.datasetInfo.totalFeatures > 5 ? '...' : ''}] → Class {Math.floor(Math.random() * 2)}
+                                    ).join(', ')}{currentData.metadata.featureCount > 5 ? '...' : ''}] → Class {Math.floor(Math.random() * 2)}
                                   </span>
                                 </div>
                               ))}
@@ -1012,18 +1054,21 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
                       <div className="model-config-form-group">
                         <label className="model-config-form-label">Top 5 Important Features</label>
                         <div className="space-y-2">
-                          {trainingResults.featureImportance.slice(0, 5).map((item: any, index: number) => (
+                          {trainingResults.featureImportance && Object.entries(trainingResults.featureImportance)
+                            .sort(([,a], [,b]) => (b as number) - (a as number))
+                            .slice(0, 5)
+                            .map(([feature, importance], index: number) => (
                             <div key={index} className="model-config-feature-item">
                               <div className="model-config-feature-info">
-                                <div className="model-config-feature-name">{item.feature}</div>
+                                <div className="model-config-feature-name">{feature}</div>
                                 <div className="model-config-feature-value">
-                                  Importance: {(item.importance * 100).toFixed(1)}%
+                                  Importance: {((importance as number) * 100).toFixed(1)}%
                                 </div>
                               </div>
                               <div className="model-config-feature-bar">
                                 <div
                                   className="model-config-feature-fill"
-                                  style={{ width: `${item.importance * 100}%` }}
+                                  style={{ width: `${(importance as number) * 100}%` }}
                                 />
                               </div>
                             </div>
@@ -1041,25 +1086,25 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
                           <div className="model-config-confusion-grid">
                             <div className="model-config-confusion-cell tn">
                               <div className="model-config-confusion-value">
-                                {trainingResults.confusionMatrix[0][0]}
+                                {trainingResults.metrics?.test?.confusionMatrix[0][0]}
                               </div>
                               <div className="model-config-confusion-label">True Negative</div>
                             </div>
                             <div className="model-config-confusion-cell fp">
                               <div className="model-config-confusion-value">
-                                {trainingResults.confusionMatrix[0][1]}
+                                {trainingResults.metrics?.test?.confusionMatrix[0][1]}
                               </div>
                               <div className="model-config-confusion-label">False Positive</div>
                             </div>
                             <div className="model-config-confusion-cell fn">
                               <div className="model-config-confusion-value">
-                                {trainingResults.confusionMatrix[1][0]}
+                                {trainingResults.metrics?.test?.confusionMatrix[1][0]}
                               </div>
                               <div className="model-config-confusion-label">False Negative</div>
                             </div>
                             <div className="model-config-confusion-cell tp">
                               <div className="model-config-confusion-value">
-                                {trainingResults.confusionMatrix[1][1]}
+                                {trainingResults.metrics?.test?.confusionMatrix[1][1]}
                               </div>
                               <div className="model-config-confusion-label">True Positive</div>
                             </div>
@@ -1074,11 +1119,15 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
                       <div className="model-config-form-group">
                         <label className="model-config-form-label">Training Logs</label>
                         <div className="model-config-form-input" style={{ minHeight: '300px', fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                          {trainingResults.trainingLogs.map((log: string, index: number) => (
-                            <div key={index} className="py-1">
-                              {log}
-                            </div>
-                          ))}
+                          {trainingResults.logs && trainingResults.logs.length > 0 ? (
+                            trainingResults.logs.map((log: string, index: number) => (
+                              <div key={index} className="py-1">
+                                {log}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="py-1 text-gray-500">No training logs available</div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1089,7 +1138,7 @@ const ModelConfigurationPageContent: React.FC<ModelConfigurationPageProps> = ({
                       <div className="model-config-form-group">
                         <label className="model-config-form-label">Script Execution Output</label>
                         <div className="model-config-success" style={{ minHeight: '300px', fontFamily: 'monospace', fontSize: '0.875rem', whiteSpace: 'pre-wrap' }}>
-                          {trainingResults.scriptOutput}
+                          {trainingResults.scriptOutput || 'No script output available'}
                         </div>
                       </div>
                     </div>

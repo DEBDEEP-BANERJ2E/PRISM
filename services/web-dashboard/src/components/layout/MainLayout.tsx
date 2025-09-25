@@ -87,7 +87,8 @@ const navigationItems = [
     workflowStep: 'risk-assessment' as const
   },
   { path: '/app/sensors', label: 'Sensor Management', icon: Sensors },
-  { path: '/app/alerts', label: 'Alerts & Notifications', icon: Warning },
+  { path: '/app/alerts', label: 'Alerts', icon: Warning },
+  { path: '/app/notifications', label: 'Notifications', icon: Notifications },
   { path: '/app/digital-twin', label: 'Digital Twin', icon: ViewInAr }
 ];
 

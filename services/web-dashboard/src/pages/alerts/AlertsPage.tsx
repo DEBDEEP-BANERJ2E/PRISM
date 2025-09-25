@@ -209,9 +209,100 @@ const AlertsPage: React.FC = () => {
     setSelectedAlert(null);
   };
 
-  const handleAcknowledge = (alertId: string) => {
-    // In real app, this would update the alert status
-    console.log('Acknowledging alert:', alertId);
+  const handleAcknowledge = async (alertId: string) => {
+    try {
+      // Find the alert
+      const currentAlert = alerts.find(a => a.id === alertId);
+      if (!currentAlert) {
+        console.error('Alert not found:', alertId);
+        return;
+      }
+
+      // Step 1: Create notification in the backend
+      const notificationData = {
+        title: `Alert Acknowledged: ${currentAlert.title}`,
+        message: `Alert "${currentAlert.title}" has been acknowledged.\n\nDescription: ${currentAlert.description}\n\nSeverity: ${currentAlert.severity}\nCategory: ${currentAlert.category}\nLocation: ${currentAlert.location || 'N/A'}\nSource: ${currentAlert.source}`,
+        type: 'info',
+        severity: currentAlert.severity,
+        source: 'alerts',
+        alertId: alertId,
+        metadata: {
+          originalAlert: currentAlert,
+          action: 'acknowledged',
+          timestamp: new Date().toISOString()
+        }
+      };
+
+      const createResponse = await fetch('http://localhost:5002/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(notificationData),
+      });
+
+      if (!createResponse.ok) {
+        const error = await createResponse.json();
+        console.error('❌ Failed to create notification:', error);
+        window.alert('Failed to acknowledge alert. Please try again.');
+        return;
+      }
+
+      const createResult = await createResponse.json();
+      const notificationId = createResult.data.id;
+      console.log('✅ Notification created successfully:', createResult.data);
+
+      // Step 2: Automatically approve the notification
+      const approveResponse = await fetch(`http://localhost:5002/notifications/${notificationId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!approveResponse.ok) {
+        const error = await approveResponse.json();
+        console.error('❌ Failed to approve notification:', error);
+        window.alert('Failed to approve notification. Please try again.');
+        return;
+      }
+
+      const approveResult = await approveResponse.json();
+      console.log('✅ Notification approved successfully:', approveResult.data);
+
+      // Step 3: Automatically send the email
+      const emailData = {
+        receiverEmail: 'debdeep.banerjee.iotcs27@heritageit.edu.in',
+        subject: `🚨 URGENT: ${currentAlert.title}`,
+        body: `Alert "${currentAlert.title}" has been acknowledged and requires immediate attention.\n\nDescription: ${currentAlert.description}\n\nSeverity: ${currentAlert.severity.toUpperCase()}\nCategory: ${currentAlert.category}\nLocation: ${currentAlert.location || 'N/A'}\nSource: ${currentAlert.source}\n\nThis is an automated notification from the PRISM system.\n\nPlease acknowledge receipt of this notification.`
+      };
+
+      const emailResponse = await fetch(`http://localhost:5002/notifications/${notificationId}/send-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailData),
+      });
+
+      if (emailResponse.ok) {
+        const emailResult = await emailResponse.json();
+        console.log('✅ Email sent successfully:', emailResult);
+
+        // Show success message
+        window.alert('✅ Alert acknowledged and email sent successfully!');
+
+        // In real app, you might want to update the alert status locally
+        console.log('Alert acknowledged, notification created, approved, and email sent:', alertId);
+      } else {
+        const error = await emailResponse.json();
+        console.error('❌ Failed to send email:', error);
+        window.alert('Alert acknowledged but failed to send email. Please check notification service.');
+      }
+    } catch (error) {
+      console.error('❌ Error acknowledging alert:', error);
+      window.alert('Error acknowledging alert. Please check your connection.');
+    }
   };
 
   const handleResolve = (alertId: string) => {

@@ -3,33 +3,38 @@ import { Brain, Zap, Network, Target, Sparkles, Award, TreePine } from 'lucide-r
 
 // Mock data for demonstration
 export const mockData: ProcessedDataset = {
-  id: 'mock-dataset-001',
+  id: '1d8c3582-6142-48d8-b073-829d6f6e358a',
   originalData: {
     id: 'raw-001',
-    name: 'Sample Mining Dataset',
-    headers: ['rainfall', 'temperature', 'blast_intensity', 'groundwater_level', 'slope_angle', 'slope_stability'],
+    name: 'Rockfall Prediction Dataset',
+    headers: ['Timestamp', 'Location', 'Slope_Angle_deg', 'Rock_Type', 'Rainfall_mm', 'Pore_Pressure_kPa', 'Soil_Water_Content', 'Seismic_Activity', 'Discontinuity_Spacing_m', 'Rock_Mass_Rating', 'Rockfall_Risk'],
     rows: [],
     metadata: {
-      rowCount: 1000,
-      columnCount: 6,
+      rowCount: 120,
+      columnCount: 11,
       dataTypes: {
-        'rainfall': 'number',
-        'temperature': 'number',
-        'blast_intensity': 'number',
-        'groundwater_level': 'number',
-        'slope_angle': 'number',
-        'slope_stability': 'number'
+        'Timestamp': 'string',
+        'Location': 'string',
+        'Slope_Angle_deg': 'number',
+        'Rock_Type': 'string',
+        'Rainfall_mm': 'number',
+        'Pore_Pressure_kPa': 'number',
+        'Soil_Water_Content': 'number',
+        'Seismic_Activity': 'number',
+        'Discontinuity_Spacing_m': 'number',
+        'Rock_Mass_Rating': 'number',
+        'Rockfall_Risk': 'string'
       },
       uploadedAt: new Date(),
       fileSize: 1024000,
-      fileName: 'mining_data.csv'
+      fileName: 'rockfall_prediction_timeseries.csv'
     }
   },
   features: Array.from({ length: 1000 }, () =>
     Array.from({ length: 5 }, () => Math.random())
   ),
   labels: Array.from({ length: 1000 }, () => Math.random() > 0.5 ? 1 : 0),
-  featureNames: ['rainfall', 'temperature', 'blast_intensity', 'groundwater_level', 'slope_angle'],
+  featureNames: ['Timestamp', 'Location', 'Slope_Angle_deg', 'Rock_Type', 'Rainfall_mm', 'Pore_Pressure_kPa', 'Soil_Water_Content', 'Seismic_Activity', 'Discontinuity_Spacing_m', 'Rock_Mass_Rating'],
   preprocessing: {
     steps: [
       {
@@ -97,8 +102,8 @@ export const mockData: ProcessedDataset = {
   metadata: {
     createdAt: new Date(),
     processedAt: new Date(),
-    rowCount: 1000,
-    featureCount: 5
+    rowCount: 120,
+    featureCount: 10
   }
 };
 

@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    allowedHosts: ['prism-5en0.onrender.com'],
     host: true
   },
   build: {

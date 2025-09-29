@@ -1,16 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   TextField,
   IconButton,
   Menu,
@@ -19,198 +12,96 @@ import {
   ListItemText,
   Chip,
   Card,
-  LinearProgress,
+  Snackbar,
+  Alert,
+  InputAdornment,
+  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Snackbar,
-  Alert,
-  Tooltip,
-  InputAdornment
+  LinearProgress
 } from '@mui/material';
 import {
   Add,
   Delete,
   Upload,
   Download,
-  MoreVert,
   Search,
   Refresh,
   CheckCircle,
   Error as ErrorIcon,
   DataObject,
-  Edit,
-  Visibility
+  Visibility,
+  Close
 } from '@mui/icons-material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
-import WorkflowGuard from '../../components/workflow/WorkflowGuard';
-import { Dataset } from '@/types/dataset';
 import { tableSyncService } from "../../api/dataScience/TableSyncService";
 import { TableData, ColumnDefinition, RowData } from '../../types/dataScience';
-import { GridColDef } from '@mui/x-data-grid';
 
-interface DataInputPageHeaderProps {
-  handleAddRow: () => Promise<void>;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-  handleExport: (type: 'csv' | 'json') => void;
-  selectedDataset: TableData | null;
-  tableData: TableData;
-}
-
-const DataInputPageHeader: React.FC<DataInputPageHeaderProps> = ({
-  handleAddRow,
-  fileInputRef,
-  handleExport,
-  selectedDataset,
-  tableData,
-}) => (
-  <Box sx={{ 
-    borderBottom: 1, 
-    borderColor: 'divider', 
-    bgcolor: 'background.paper',
-    px: 3,
-    py: 2
-  }}>
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <Box>
-        <Typography variant="h5" fontWeight={600} gutterBottom>
-          Data Input
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Import, view, and edit your datasets
-        </Typography>
-      </Box>
-      <Box>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<Add />}
-          onClick={handleAddRow}
-          sx={{ mr: 1 }}
-          disabled={!selectedDataset}
-        >
-          Add Row
-        </Button>
-        <Button 
-          variant="outlined"
-          startIcon={<Upload />}
-          onClick={() => fileInputRef.current?.click()}
-          sx={{ mr: 1 }}
-        >
-          Import
-        </Button>
-        <input
-          type="file"
-          ref={fileInputRef}
-          style={{ display: 'none' }}
-          accept=".csv,.json,.xlsx"
-          onChange={(e) => {
-            // Handle file upload
-            console.log('File selected:', e.target.files?.[0]);
-          }}
-        />
-        <Button 
-          variant="outlined"
-          startIcon={<Download />}
-          onClick={() => handleExport('csv')}
-          disabled={!selectedDataset || tableData.length === 0}
-        >
-          Export
-        </Button>
-      </Box>
-    </Box>
-  </Box>
-);
-
-// Main component implementation
 const DataInputPage: React.FC = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // State management
   const [datasets, setDatasets] = useState<TableData[]>([]);
   const [selectedDataset, setSelectedDataset] = useState<TableData | null>(null);
-  const [tableData, setTableData] = useState<TableData>({ 
-    id: '', 
-    name: '', 
-    columns: [], 
-    rows: [], 
+  const [tableData, setTableData] = useState<TableData>({
+    id: '',
+    name: '',
+    columns: [],
+    rows: [],
     length: 0,
-    metadata: { 
-      totalRows: 0, 
-      totalColumns: 0, 
-      lastUpdated: new Date(), 
-      status: "pending" 
-    } 
+    metadata: {
+      totalRows: 0,
+      totalColumns: 0,
+      lastUpdated: new Date(),
+      status: "pending"
+    }
   });
   const [columns, setColumns] = useState<ColumnDefinition[]>([]);
   const [snackbar, setSnackbar] = useState<{ open: boolean, message: string, severity: 'info' | 'success' | 'warning' | 'error' }>({ open: false, message: '', severity: 'info' });
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  // Explorer effects
-  useEffect(() => {
-    (async () => {
-      try {
-        // Use the correct API endpoint
-        const res = await fetch('/api/data-science/tables');
-        // Check if response is OK before parsing JSON
-        if (!res.ok) {
-          console.error(`API request failed with status ${res.status}`);
-          return;
-        }
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.error(`Expected JSON response but got ${contentType}`);
-          return;
-        }
-        const json = await res.json();
-        if (json.success) setTableNames(json.data as string[]);
-      } catch(err) { console.error(err); }
-    })();
-  }, []);
-
-  const [tableNames, setTableNames] = useState<string[]>([]);
-  const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [tableRows, setTableRows] = useState<any[]>([]);
-  const [tableColumns, setTableColumns] = useState<GridColDef[]>([]);
-  
-  useEffect(() => {
-    if(!selectedTable) return;
-    (async () => {
-      try {
-        const res = await fetch(`/api/data-science/tables/${selectedTable}`);
-        // Check if response is OK before parsing JSON
-        if (!res.ok) {
-          console.error(`API request failed with status ${res.status}`);
-          return;
-        }
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.error(`Expected JSON response but got ${contentType}`);
-          return;
-        }
-        const json = await res.json();
-        if(json.success){
-          const rows:any[] = json.data;
-          setTableRows(rows.map((r,i)=>({ id:i, ...r })));
-          setTableColumns(rows.length? Object.keys(rows[0]).map(k=>({ field:k, headerName:k, flex:1 })) : []);
-        }
-      } catch(err){ console.error(err); }
-    })();
-  }, [selectedTable]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [loading, setLoading] = useState(true);
+
+  // File upload states
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [parsedData, setParsedData] = useState<any[][]>([]);
+  const [parsedHeaders, setParsedHeaders] = useState<string[]>([]);
+  const [isParsingFile, setIsParsingFile] = useState(false);
+  const [datasetName, setDatasetName] = useState('');
 
   // Load datasets on component mount
   useEffect(() => {
     const fetchDatasets = async () => {
       try {
+        setLoading(true);
         const datasets = await tableSyncService.listDatasets();
-        setDatasets(datasets);
-        
-        if (datasets.length > 0) {
-          setSelectedDataset(datasets[0]);
+
+        // Transform API response to match expected format
+        const transformedDatasets: TableData[] = datasets.map((dataset: any) => ({
+          id: dataset.id.toString(),
+          name: dataset.title || dataset.name || 'Unnamed Dataset',
+          description: dataset.description,
+          columns: [],
+          rows: [],
+          length: 0,
+          metadata: {
+            totalRows: 0,
+            totalColumns: 0,
+            lastUpdated: new Date(dataset.updatedAt || dataset.updated_at),
+            status: 'completed' as const
+          }
+        }));
+
+        setDatasets(transformedDatasets);
+
+        if (transformedDatasets.length > 0) {
+          setSelectedDataset(transformedDatasets[0]);
         }
       } catch (error) {
         console.error('Error fetching datasets:', error);
@@ -219,9 +110,11 @@ const DataInputPage: React.FC = () => {
           message: `Failed to fetch datasets: ${error instanceof Error ? error.message : 'Unknown error'}`,
           severity: 'error'
         });
+      } finally {
+        setLoading(false);
       }
     };
-    
+
     fetchDatasets();
   }, []);
 
@@ -229,11 +122,11 @@ const DataInputPage: React.FC = () => {
   useEffect(() => {
     const fetchTableData = async () => {
       if (!selectedDataset) return;
-      
+
       try {
-        const { rows, columns } = await tableSyncService.loadTableData(selectedDataset.id);
-        setTableData({ ...selectedDataset, rows, columns });
-        setColumns(columns);
+        const data = await tableSyncService.loadTableData(selectedDataset.id);
+        setTableData(data);
+        setColumns(data.columns);
       } catch (error) {
         console.error('Error fetching table data:', error);
         setSnackbar({
@@ -243,21 +136,9 @@ const DataInputPage: React.FC = () => {
         });
       }
     };
-    
+
     fetchTableData();
   }, [selectedDataset]);
-
-  // Table event handlers
-  const handleTableChange = (pagination: any, filters: any, sorter: any) => {
-    console.log('Table params:', { pagination, filters, sorter });
-  };
-
-  const handleCellEdit = (row: any, columnName: string, value: any) => {
-    const updatedRows = tableData.rows.map(r =>
-      r.id === row.id ? { ...r, data: { ...r.data, [columnName]: value } } : r
-    );
-    setTableData(prev => ({ ...prev, rows: updatedRows }));
-  };
 
   const handleAddRow = async () => {
     if (!selectedDataset) {
@@ -275,11 +156,11 @@ const DataInputPage: React.FC = () => {
         rowIndex: tableData.rows.length,
         data: {},
       };
-      
+
       // Add default values for columns if necessary
       columns.forEach(col => {
         if (col.field !== 'id') {
-          newRow.data[col.field] = ''; // Or some other default value
+          newRow.data[col.field] = '';
         }
       });
 
@@ -312,60 +193,6 @@ const DataInputPage: React.FC = () => {
     }
   };
 
-  const handleProcessRowUpdate = useCallback(
-    async (newRow: RowData): Promise<RowData> => {
-      if (!selectedDataset) return newRow;
-
-      try {
-        // Find the original row to get the old data
-        const originalRow = tableData.rows.find(row => row.id === newRow.id);
-        if (!originalRow) {
-          throw new Error("Original row not found for update.");
-        }
-
-        // Identify changed fields
-        const changedFields: { [key: string]: any } = {};
-        for (const key in newRow.data) {
-          if (newRow.data[key] !== originalRow.data[key]) {
-            changedFields[key] = newRow.data[key];
-          }
-        }
-
-        if (Object.keys(changedFields).length > 0) {
-          // Update each changed cell in the database
-          for (const columnName in changedFields) {
-            await tableSyncService.updateCell(selectedDataset.id, newRow.id, columnName, changedFields[columnName]);
-          }
-          setSnackbar({
-            open: true,
-            message: 'Row updated successfully!',
-            severity: 'success'
-          });
-        } else {
-          setSnackbar({
-            open: true,
-            message: 'No changes detected for row update.',
-            severity: 'info'
-          });
-        }
-
-        // Update the local state with the new row
-        setTableData(prev => ({ ...prev, rows: prev.rows.map(row => (row.id === newRow.id ? newRow : row)) }));
-        return newRow;
-      } catch (error) {
-        console.error('Error updating row:', error);
-        setSnackbar({
-          open: true,
-          message: `Failed to update row: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          severity: 'error'
-        });
-        // Return the original row to revert the UI if the update fails
-        return tableData.rows.find(row => row.id === newRow.id) || newRow;
-      }
-    },
-    [selectedDataset, tableData.rows] // Add tableData.rows to dependencies
-  );
-
   const handleExport = (type: 'csv' | 'json') => {
     if (!selectedDataset || tableData.rows.length === 0) {
       setSnackbar({
@@ -390,7 +217,7 @@ const DataInputPage: React.FC = () => {
 
       const blob = new Blob([dataStr], { type: type === 'csv' ? 'text/csv;charset=utf-8;' : 'application/json;charset=utf-8;' });
       const link = document.createElement('a');
-      if (link.download !== undefined) { // Feature detection for download attribute
+      if (link.download !== undefined) {
         link.setAttribute('href', URL.createObjectURL(blob));
         link.setAttribute('download', filename);
         link.style.visibility = 'hidden';
@@ -413,28 +240,26 @@ const DataInputPage: React.FC = () => {
     }
   };
 
-  // Data preprocessing
   const handleStartPreprocessing = async () => {
     if (!selectedDataset) return;
-    
+
     setIsProcessing(true);
-    
+
     try {
-      // Use tableSyncService for preprocessing if needed
       console.log('Starting preprocessing for dataset:', selectedDataset.id);
       console.log('Data rows:', tableData.rows.length);
-      
+
       // Simulate preprocessing
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       setSnackbar({
         open: true,
         message: 'Data preprocessing completed successfully!',
         severity: 'success'
       });
-      
+
       // Navigate to next step
-      navigate('/data-science/feature-engineering');
+      navigate('/app/model-config');
     } catch (error) {
       console.error('Preprocessing error:', error);
       setSnackbar({
@@ -481,7 +306,7 @@ const DataInputPage: React.FC = () => {
         message: 'Rows deleted successfully!',
         severity: 'success'
       });
-      setSelectedRows([]); // Clear selected rows after deletion
+      setSelectedRows([]);
     } catch (error) {
       console.error('Error deleting rows:', error);
       setSnackbar({
@@ -489,32 +314,350 @@ const DataInputPage: React.FC = () => {
         message: `Failed to delete rows: ${error instanceof Error ? error.message : 'Unknown error'}`,
         severity: 'error'
       });
-      // Revert UI if API call fails (re-fetch data or add deleted rows back)
-      // For simplicity, we'll re-fetch the data here. In a real app, you might want a more sophisticated rollback.
-      const { rows, columns } = await tableSyncService.loadTableData(selectedDataset.id);
-      setTableData({ ...selectedDataset, rows, columns });
+      // Revert UI if API call fails
+      const data = await tableSyncService.loadTableData(selectedDataset.id);
+      setTableData(data);
     }
   };
 
-  interface DataTableSectionProps {
-    selectedDataset: TableData | null;
-    tableData: TableData;
-    columns: ColumnDefinition[];
-    setSelectedRows: (selectionModel: string[]) => void;
-    selectedRows: string[];
-    handleProcessRowUpdate: (newRow: RowData) => Promise<RowData>;
-  }
-  
-  const DataTableSection: React.FC<DataTableSectionProps> = ({
-    selectedDataset,
-    tableData,
-    columns,
-    setSelectedRows,
-    selectedRows,
-    handleProcessRowUpdate,
-  }) => {
+  const handleProcessRowUpdate = async (newRow: RowData): Promise<RowData> => {
+    if (!selectedDataset) return newRow;
+
+    try {
+      // Find the original row to get the old data
+      const originalRow = tableData.rows.find(row => row.id === newRow.id);
+      if (!originalRow) {
+        throw new Error("Original row not found for update.");
+      }
+
+      // Identify changed fields
+      const changedFields: { [key: string]: any } = {};
+      for (const key in newRow.data) {
+        if (newRow.data[key] !== originalRow.data[key]) {
+          changedFields[key] = newRow.data[key];
+        }
+      }
+
+      if (Object.keys(changedFields).length > 0) {
+        // Update each changed cell in the database
+        for (const columnName in changedFields) {
+          await tableSyncService.updateCell(selectedDataset.id, newRow.id, columnName, changedFields[columnName]);
+        }
+        setSnackbar({
+          open: true,
+          message: 'Row updated successfully!',
+          severity: 'success'
+        });
+      }
+
+      // Update the local state with the new row
+      setTableData(prev => ({ ...prev, rows: prev.rows.map(row => (row.id === newRow.id ? newRow : row)) }));
+      return newRow;
+    } catch (error) {
+      console.error('Error updating row:', error);
+      setSnackbar({
+        open: true,
+        message: `Failed to update row: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error'
+      });
+      // Return the original row to revert the UI if the update fails
+      return tableData.rows.find(row => row.id === newRow.id) || newRow;
+    }
+  };
+
+  // File upload functions
+  const parseCSV = (text: string): { headers: string[], data: any[][] } => {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length === 0) return { headers: [], data: [] };
+
+    const headers = lines[0].split(',').map(header => header.trim().replace(/"/g, ''));
+    const data = lines.slice(1).map(line => {
+      const values = line.split(',').map(value => value.trim().replace(/"/g, ''));
+      return values;
+    });
+
+    return { headers, data };
+  };
+
+  const parseXLSX = async (file: File): Promise<{ headers: string[], data: any[][] }> => {
+    // For now, we'll use a simple approach. In production, you'd use a library like xlsx
+    // For demo purposes, we'll assume it's a CSV-like structure
+    const text = await file.text();
+    return parseCSV(text);
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadedFile(file);
+    setIsParsingFile(true);
+
+    try {
+      let headers: string[] = [];
+      let data: any[][] = [];
+
+      if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+        const text = await file.text();
+        const result = parseCSV(text);
+        headers = result.headers;
+        data = result.data;
+      } else if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.name.endsWith('.xlsx')) {
+        const result = await parseXLSX(file);
+        headers = result.headers;
+        data = result.data;
+      } else {
+        throw new Error('Unsupported file type. Please upload CSV or XLSX files only.');
+      }
+
+      setParsedHeaders(headers);
+      setParsedData(data);
+      setDatasetName(file.name.replace(/\.(csv|xlsx)$/, ''));
+      setUploadDialogOpen(true);
+    } catch (error) {
+      console.error('Error parsing file:', error);
+      setSnackbar({
+        open: true,
+        message: `Failed to parse file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error'
+      });
+    } finally {
+      setIsParsingFile(false);
+    }
+  };
+
+  const handleCreateDatasetFromUpload = async () => {
+    if (!uploadedFile || parsedHeaders.length === 0) return;
+
+    setIsProcessing(true);
+    try {
+      // Create new dataset
+      const newDataset = {
+        name: datasetName,
+        description: `Uploaded from ${uploadedFile.name}`,
+        columns: parsedHeaders.map((header, index) => ({
+          name: header.toLowerCase().replace(/\s+/g, '_'),
+          display_name: header,
+          data_type: 'string',
+          is_required: false,
+          validation_rules: {},
+          order_index: index
+        })),
+        rows: parsedData.map((row, index) => ({
+          id: `row-${index}`,
+          dataset_id: '', // Will be set by backend
+          data: parsedHeaders.reduce((acc, header, colIndex) => {
+            acc[header.toLowerCase().replace(/\s+/g, '_')] = row[colIndex] || '';
+            return acc;
+          }, {} as Record<string, any>),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }))
+      };
+
+      // Call API to create dataset
+      const response = await fetch('http://localhost:3005/api/datasets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newDataset)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create dataset: ${response.statusText} - ${errorText}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error?.message || 'Failed to create dataset');
+      }
+
+      setSnackbar({
+        open: true,
+        message: 'Dataset created successfully from uploaded file!',
+        severity: 'success'
+      });
+
+      setUploadDialogOpen(false);
+      setUploadedFile(null);
+      setParsedData([]);
+      setParsedHeaders([]);
+      setDatasetName('');
+
+      // Refresh datasets
+      const datasets = await tableSyncService.listDatasets();
+      const transformedDatasets: TableData[] = datasets.map((dataset: any) => ({
+        id: dataset.id.toString(),
+        name: dataset.title || dataset.name || 'Unnamed Dataset',
+        description: dataset.description,
+        columns: [],
+        rows: [],
+        length: 0,
+        metadata: {
+          totalRows: 0,
+          totalColumns: 0,
+          lastUpdated: new Date(dataset.updatedAt || dataset.updated_at),
+          status: 'completed' as const
+        }
+      }));
+      setDatasets(transformedDatasets);
+
+    } catch (error) {
+      console.error('Error creating dataset:', error);
+      setSnackbar({
+        open: true,
+        message: `Failed to create dataset: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (loading) {
     return (
-      <>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Loading datasets...</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+      {/* Header */}
+      <Box sx={{
+        borderBottom: 1,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        px: 3,
+        py: 2
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box>
+            <Typography variant="h5" fontWeight={600} gutterBottom>
+              Data Input
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Import, view, and edit your datasets
+            </Typography>
+          </Box>
+          <Box>
+            <Button
+              variant="outlined"
+              startIcon={<Upload />}
+              onClick={() => fileInputRef.current?.click()}
+              sx={{ mr: 1 }}
+            >
+              Import File
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileUpload}
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Add />}
+              onClick={handleAddRow}
+              sx={{ mr: 1 }}
+              disabled={!selectedDataset}
+            >
+              Add Row
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Download />}
+              onClick={() => handleExport('csv')}
+              disabled={!selectedDataset || tableData.length === 0}
+              sx={{ mr: 1 }}
+            >
+              Export CSV
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Download />}
+              onClick={() => handleExport('json')}
+              disabled={!selectedDataset || tableData.length === 0}
+            >
+              Export JSON
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Main content */}
+      <Box sx={{ flex: 1, p: 3, overflow: 'auto' }}>
+        {/* Dataset Selection */}
+        <Card variant="outlined" sx={{ mb: 3, p: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="h6" sx={{ mr: 2 }}>
+                Dataset:
+              </Typography>
+              {selectedDataset ? (
+                <Chip
+                  icon={<DataObject />}
+                  label={selectedDataset.name}
+                  color="primary"
+                  onDelete={() => setSelectedDataset(null)}
+                />
+              ) : (
+                <Typography color="text.secondary">No dataset selected</Typography>
+              )}
+            </Box>
+          </Box>
+        </Card>
+
+        {/* Table toolbar */}
+        {selectedDataset && (
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <TextField
+              variant="outlined"
+              size="small"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Box>
+              {selectedRows.length > 0 && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<Delete />}
+                  onClick={handleDeleteRows}
+                  sx={{ mr: 1 }}
+                >
+                  Delete Selected ({selectedRows.length})
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={isProcessing ? <CircularProgress size={16} /> : <Visibility />}
+                onClick={handleStartPreprocessing}
+                disabled={!selectedDataset || tableData.length === 0 || isProcessing}
+              >
+                {isProcessing ? 'Processing...' : 'Start Preprocessing'}
+              </Button>
+            </Box>
+          </Box>
+        )}
+
+        {/* Data table */}
         {selectedDataset && (
           <Box sx={{ height: 500, width: '100%' }}>
             <DataGrid
@@ -539,80 +682,20 @@ const DataInputPage: React.FC = () => {
             />
           </Box>
         )}
-      </>
-    );
-  };
 
-  return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
-      <DataInputPageHeader
-        handleAddRow={handleAddRow}
-        fileInputRef={fileInputRef}
-        handleExport={handleExport}
-        selectedDataset={selectedDataset}
-        tableData={tableData}
-      />
-      
-      {/* Main content */}
-      <Box sx={{ flex: 1, p: 3, overflow: 'auto' }}>
-        <DatasetSelectionSection
-          datasets={datasets}
-          selectedDataset={selectedDataset}
-          setSelectedDataset={setSelectedDataset}
-          anchorEl={anchorEl}
-          setAnchorEl={setAnchorEl}
-          handleExport={handleExport}
-          getStatusColor={getStatusColor}
-          getStatusIcon={getStatusIcon}
-        />
-        
-        {/* Explorer UI */}
-        <Card variant="outlined" sx={{ mb: 3, p: 2 }}>
-          <Typography variant="h6">Database Tables</Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-            {tableNames.map((name) => (
-              <Chip
-                key={name}
-                label={name}
-                clickable
-                color={selectedTable === name ? 'primary' : 'default'}
-                onClick={() => setSelectedTable(name)}
-              />
-            ))}
-          </Box>
-        </Card>
-
-        {selectedTable && (
-          <Box sx={{ mb: 3, height: 500 }}>
-            <DataGrid rows={tableRows} columns={tableColumns} pageSizeOptions={[10, 25, 50]} />
-          </Box>
+        {!selectedDataset && (
+          <Card variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
+            <DataObject sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary">
+              Select a dataset to view and edit data
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Choose a dataset from the list above to start working with your data.
+            </Typography>
+          </Card>
         )}
-
-        {/* Table toolbar */}
-        {selectedDataset && (
-          <TableToolbarSection
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            handleDeleteRows={handleDeleteRows}
-            selectedRows={selectedRows}
-            handleStartPreprocessing={handleStartPreprocessing}
-            selectedDataset={selectedDataset}
-            tableData={tableData}
-            isProcessing={isProcessing}
-          />
-        )}
-        
-        {/* Data table */}
-        <DataTableSection
-          selectedDataset={selectedDataset}
-          tableData={tableData}
-          columns={columns}
-          setSelectedRows={setSelectedRows}
-          selectedRows={selectedRows}
-          handleProcessRowUpdate={handleProcessRowUpdate}
-        />
       </Box>
-      
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
@@ -623,238 +706,83 @@ const DataInputPage: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
-  );
-};
 
-// Helper functions for status display
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'completed':
-      return 'success';
-    case 'in_progress':
-      return 'info';
-    case 'failed':
-      return 'error';
-    default:
-      return 'default';
-  }
-};
-
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'completed':
-      return <CheckCircle fontSize="small" />;
-    case 'in_progress':
-      return <Refresh fontSize="small" />;
-    case 'failed':
-      return <ErrorIcon fontSize="small" />;
-    default:
-      return <DataObject fontSize="small" />;
-  }
-};
-
-interface DatasetSelectionSectionProps {
-  datasets?: TableData[];
-  selectedDataset: TableData | null;
-  setSelectedDataset: (dataset: TableData | null) => void;
-  anchorEl: null | HTMLElement;
-  setAnchorEl: (anchorEl: null | HTMLElement) => void;
-  handleExport: (type: 'csv' | 'json') => void;
-  getStatusColor?: (status: string) => 'success' | 'error' | 'warning' | 'info' | 'default';
-  getStatusIcon?: (status: string) => React.ReactElement;
-}
-
-// Mock data for hardcoded values
-const mockDatasets: TableData[] = [
-  {
-    id: 'dataset-1',
-    name: 'Sample Dataset 1',
-    columns: [],
-    rows: [],
-    length: 0,
-    metadata: { 
-      totalRows: 100, 
-      totalColumns: 10, 
-      lastUpdated: new Date(), 
-      status: "completed" 
-    }
-  },
-  {
-    id: 'dataset-2',
-    name: 'Sample Dataset 2',
-    columns: [],
-    rows: [],
-    length: 0,
-    metadata: { 
-      totalRows: 50, 
-      totalColumns: 5, 
-      lastUpdated: new Date(), 
-      status: "in_progress" 
-    }
-  }
-];
-
-const DatasetSelectionSection: React.FC<DatasetSelectionSectionProps> = ({
-  datasets = mockDatasets,
-  selectedDataset,
-  setSelectedDataset,
-  anchorEl,
-  setAnchorEl,
-  handleExport,
-  getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'success';
-      case 'in_progress': return 'info';
-      case 'failed': return 'error';
-      default: return 'default';
-    }
-  },
-  getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle fontSize="small" />;
-      case 'in_progress': return <Refresh fontSize="small" />;
-      case 'failed': return <ErrorIcon fontSize="small" />;
-      default: return <DataObject fontSize="small" />;
-    }
-  },
-}) => {
-  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleDatasetSelect = (dataset: TableData) => {
-    setSelectedDataset(dataset);
-    handleMenuClose();
-  };
-
-  return (
-    <Card variant="outlined" sx={{ mb: 3, p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Typography variant="h6" sx={{ mr: 2 }}>
-            Dataset:
-          </Typography>
-          {selectedDataset ? (
-            <Chip
-              icon={getStatusIcon(selectedDataset.metadata?.status || 'unknown')}
-              label={selectedDataset.name}
-              color={getStatusColor(selectedDataset.metadata?.status || 'unknown')}
-              onDelete={() => setSelectedDataset(null)}
-              onClick={handleMenuOpen}
-              sx={{ cursor: 'pointer' }}
-            />
+      {/* File Upload Dialog */}
+      <Dialog
+        open={uploadDialogOpen}
+        onClose={() => !isProcessing && setUploadDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Create Dataset from File
+          {isParsingFile && <CircularProgress size={20} sx={{ ml: 2 }} />}
+        </DialogTitle>
+        <DialogContent>
+          {isParsingFile ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <CircularProgress />
+              <Typography sx={{ mt: 2 }}>Parsing file...</Typography>
+            </Box>
           ) : (
-            <Button onClick={handleMenuOpen} variant="outlined">
-              Select Dataset
-            </Button>
+            <Box sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                label="Dataset Name"
+                value={datasetName}
+                onChange={(e) => setDatasetName(e.target.value)}
+                sx={{ mb: 3 }}
+              />
+
+              {parsedHeaders.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Preview ({parsedData.length} rows)
+                  </Typography>
+                  <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${parsedHeaders.length}, 1fr)`, gap: 1, mb: 1 }}>
+                      {parsedHeaders.map((header, index) => (
+                        <Typography key={index} variant="subtitle2" sx={{ fontWeight: 'bold', p: 1, bgcolor: 'grey.100' }}>
+                          {header}
+                        </Typography>
+                      ))}
+                    </Box>
+                    {parsedData.slice(0, 5).map((row, rowIndex) => (
+                      <Box key={rowIndex} sx={{ display: 'grid', gridTemplateColumns: `repeat(${parsedHeaders.length}, 1fr)`, gap: 1, mb: 0.5 }}>
+                        {row.map((cell, cellIndex) => (
+                          <Typography key={cellIndex} variant="body2" sx={{ p: 1, border: '1px solid', borderColor: 'grey.300' }}>
+                            {cell || ''}
+                          </Typography>
+                        ))}
+                      </Box>
+                    ))}
+                    {parsedData.length > 5 && (
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 1 }}>
+                        ... and {parsedData.length - 5} more rows
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              )}
+            </Box>
           )}
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-          >
-            {datasets.map((dataset) => (
-              <MenuItem key={dataset.id} onClick={() => handleDatasetSelect(dataset)}>
-                <ListItemIcon>
-                  {getStatusIcon(dataset.metadata?.status || 'unknown')}
-                </ListItemIcon>
-                <ListItemText primary={dataset.name} />
-                <Chip
-                  label={dataset.metadata?.status || 'unknown'}
-                  size="small"
-                  color={getStatusColor(dataset.metadata?.status || 'unknown')}
-                  sx={{ ml: 1 }}
-                />
-              </MenuItem>
-            ))}
-          </Menu>
-        </Box>
-        <Box>
+        </DialogContent>
+        <DialogActions>
           <Button
-            startIcon={<Download />}
-            onClick={() => handleExport('csv')}
-            disabled={!selectedDataset}
-            sx={{ mr: 1 }}
+            onClick={() => setUploadDialogOpen(false)}
+            disabled={isProcessing}
           >
-            Export CSV
+            Cancel
           </Button>
           <Button
-            startIcon={<Download />}
-            onClick={() => handleExport('json')}
-            disabled={!selectedDataset}
+            onClick={handleCreateDatasetFromUpload}
+            variant="contained"
+            disabled={isProcessing || !datasetName.trim() || parsedHeaders.length === 0}
           >
-            Export JSON
+            {isProcessing ? <CircularProgress size={20} /> : 'Create Dataset'}
           </Button>
-        </Box>
-      </Box>
-    </Card>
-  );
-};
-
-interface TableToolbarSectionProps {
-  searchTerm: string;
-  setSearchTerm: (term: string) => void;
-  handleDeleteRows: () => Promise<void>;
-  selectedRows: string[];
-  handleStartPreprocessing: () => Promise<void>;
-  selectedDataset: TableData | null;
-  tableData: TableData;
-  isProcessing: boolean;
-}
-
-const TableToolbarSection: React.FC<TableToolbarSectionProps> = ({
-  searchTerm,
-  setSearchTerm,
-  handleDeleteRows,
-  selectedRows,
-  handleStartPreprocessing,
-  selectedDataset,
-  tableData,
-  isProcessing,
-}) => {
-  return (
-    <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <TextField
-        variant="outlined"
-        size="small"
-        placeholder="Search..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Search />
-            </InputAdornment>
-          ),
-        }}
-      />
-      <Box>
-        {selectedRows.length > 0 && (
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<Delete />}
-            onClick={handleDeleteRows}
-            sx={{ mr: 1 }}
-          >
-            Delete Selected ({selectedRows.length})
-          </Button>
-        )}
-        <Button
-          variant="contained"
-          color="secondary"
-          startIcon={<Visibility />}
-          onClick={handleStartPreprocessing}
-          disabled={!selectedDataset || tableData.length === 0 || isProcessing}
-        >
-          {isProcessing ? 'Processing...' : 'Start Preprocessing'}
-        </Button>
-      </Box>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

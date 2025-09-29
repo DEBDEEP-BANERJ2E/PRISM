@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: prism-web-dashboard
+    env: node
+    buildCommand: "npm install && npm run build && npm run build:server"
+    startCommand: "npm start"
+    autoDeploy: false
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_API_BASE_URL
+        generateValue: true
+      - key: VITE_SUPABASE_URL
+        generateValue: true
+      - key: VITE_SUPABASE_ANON_KEY
+        generateValue: true

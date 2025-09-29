@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: prism-supabase-backend
+    env: node
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm start"
+    autoDeploy: false
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        generateValue: true
+      - key: SUPABASE_ANON_KEY
+        generateValue: true
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        generateValue: true

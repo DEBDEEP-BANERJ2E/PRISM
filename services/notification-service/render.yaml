@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: prism-notification-service
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT app:app"
+    autoDeploy: false
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: SENDER_EMAIL
+        generateValue: true
+      - key: SENDER_PASSWORD
+        generateValue: true
